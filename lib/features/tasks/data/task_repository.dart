@@ -110,6 +110,17 @@ class TaskRepository {
         .watch();
   }
 
+  Stream<List<Task>> watchAllActiveTasks() {
+    return (_db.select(_db.tasks)
+          ..where(
+            (t) =>
+                t.isDeleted.equals(false) &
+                t.isWontDo.equals(false) &
+                t.parentTaskId.isNull(),
+          ))
+        .watch();
+  }
+
   Stream<List<Task>> watchSubtasks(String parentTaskId) {
     return (_db.select(_db.tasks)..where(
           (t) =>

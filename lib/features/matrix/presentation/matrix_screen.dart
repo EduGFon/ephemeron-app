@@ -16,6 +16,7 @@ class MatrixScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = ref.watch(themeEngineProvider);
+    final showCompleted = ref.watch(showCompletedMatrixTasksProvider);
     final isLoaded = ref.watch(allPendingTasksProvider).hasValue;
 
     return Scaffold(
@@ -24,6 +25,16 @@ class MatrixScreen extends ConsumerWidget {
         title: const Text('Eisenhower Matrix', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(showCompleted ? Icons.check_circle : Icons.check_circle_outline),
+            tooltip: showCompleted ? 'Hide completed' : 'Show completed',
+            onPressed: () {
+              ref.read(showCompletedMatrixTasksProvider.notifier).toggle();
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: !isLoaded
           ? const Center(child: CircularProgressIndicator())
@@ -152,7 +163,12 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
                                   children: [
                                     GestureDetector(
                                       onTap: () {
-                                        ref.read(taskRepositoryProvider).completeTask(task.id);
+                                        final repo = ref.read(taskRepositoryProvider);
+                                        if (task.isCompleted) {
+                                          repo.uncompleteTask(task.id);
+                                        } else {
+                                          repo.completeTask(task.id);
+                                        }
                                       },
                                       child: Container(
                                         width: 16,
@@ -160,9 +176,15 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
                                         margin: const EdgeInsets.only(top: 1, right: 8),
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          border: Border.all(color: color.withValues(alpha: 0.8), width: 1.5),
-                                          color: Colors.transparent,
+                                          border: Border.all(
+                                            color: task.isCompleted ? widget.palette.text.withValues(alpha: 0.5) : color.withValues(alpha: 0.8), 
+                                            width: 1.5,
+                                          ),
+                                          color: task.isCompleted ? widget.palette.text.withValues(alpha: 0.5) : Colors.transparent,
                                         ),
+                                        child: task.isCompleted 
+                                            ? Icon(Icons.check, size: 10, color: widget.palette.background)
+                                            : null,
                                       ),
                                     ),
                                     Expanded(
@@ -175,8 +197,9 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
                                         child: Text(
                                           task.title,
                                           style: TextStyle(
-                                            color: widget.palette.text,
+                                            color: task.isCompleted ? widget.palette.text.withValues(alpha: 0.5) : widget.palette.text,
                                             fontSize: 13,
+                                            decoration: task.isCompleted ? TextDecoration.lineThrough : null,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,

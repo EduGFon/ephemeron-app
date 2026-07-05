@@ -4,8 +4,22 @@ import '../../../data/local/database.dart';
 import '../../tasks/application/task_providers.dart';
 import '../domain/matrix_quadrant.dart';
 
+class ShowCompletedMatrixTasksNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
+final showCompletedMatrixTasksProvider = NotifierProvider<ShowCompletedMatrixTasksNotifier, bool>(() {
+  return ShowCompletedMatrixTasksNotifier();
+});
+
 final matrixTasksProvider = Provider.family<List<Task>, MatrixQuadrant>((ref, quadrant) {
-  final allTasksAsync = ref.watch(allPendingTasksProvider);
+  final showCompleted = ref.watch(showCompletedMatrixTasksProvider);
+  final allTasksAsync = showCompleted 
+      ? ref.watch(allActiveTasksProvider)
+      : ref.watch(allPendingTasksProvider);
   final allTasks = allTasksAsync.value ?? [];
   
   final now = DateTime.now();
