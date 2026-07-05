@@ -1,11 +1,8 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
-import '../domain/alarm_preset.dart';
 
 class AlarmForegroundService {
   final FlutterLocalNotificationsPlugin _plugin;
@@ -45,9 +42,9 @@ class AlarmForegroundService {
 
     try {
       await android.startForegroundService(
-        1, // Must be positive for FGS
-        title,
-        body,
+        id: 1, // Must be positive for FGS
+        title: title,
+        body: body,
         notificationDetails: details,
         payload: payload,
       );
