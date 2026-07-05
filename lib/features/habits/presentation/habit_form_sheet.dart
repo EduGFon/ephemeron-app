@@ -184,6 +184,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                 TextField(
                   controller: _nameController,
                   autofocus: !_isEditing,
+                  onChanged: (_) => setState(() {}),
                   style: TextStyle(color: palette.text),
                   decoration: InputDecoration(
                     labelText: 'Name',

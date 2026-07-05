@@ -144,6 +144,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                 TextField(
                   controller: _titleController,
                   autofocus: !_isEditing,
+                  onChanged: (_) => setState(() {}),
                   style: TextStyle(color: palette.text),
                   decoration: InputDecoration(
                     labelText: 'Title',

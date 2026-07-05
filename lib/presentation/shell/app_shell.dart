@@ -16,7 +16,7 @@ class AppShell extends ConsumerWidget {
 
   final StatefulNavigationShell navigationShell;
 
-  static const _sectionsWithQuickAdd = {0, 1, 2, 3, 4, 5, 6};
+  static const _sectionsWithQuickAdd = {0, 1, 2, 3, 4, 6}; // Removed 5 (Focus)
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

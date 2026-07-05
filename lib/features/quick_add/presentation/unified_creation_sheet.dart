@@ -64,7 +64,7 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
       NavSection.calendar => QuickAddTarget.event,
       NavSection.habits => QuickAddTarget.habit,
       NavSection.tasks => QuickAddTarget.task,
-      NavSection.focus => QuickAddTarget.countdown, // Assuming countdown is related to focus or just default to task
+      NavSection.countdown => QuickAddTarget.countdown,
       _ => QuickAddTarget.task,
     };
   }
