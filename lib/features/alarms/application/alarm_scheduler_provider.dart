@@ -1,6 +1,12 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/alarm_scheduler.dart';
+import 'alarm_foreground_service.dart';
+
+final alarmForegroundServiceProvider = Provider<AlarmForegroundService>((ref) {
+  return AlarmForegroundService(FlutterLocalNotificationsPlugin());
+});
 
 final alarmSchedulerProvider = Provider<AlarmScheduler>((ref) {
   final scheduler = AlarmScheduler();

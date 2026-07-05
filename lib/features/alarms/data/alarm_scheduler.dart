@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert' show jsonDecode;
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value, DoUpdate;
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,8 @@ const _snoozeActionId = 'snooze';
 const _doneActionId = 'done';
 const _lightChannelId = 'light_reminders';
 const _mediumChannelId = 'medium_alarms';
+const _strongChannelId = 'strong_alarms';
+const _constantChannelId = 'constant_alarms';
 
 /// The type of action a user took on an alarm notification, surfaced via
 /// [AlarmScheduler.actionEvents] so feature repositories (Tasks, Habits —
@@ -108,6 +111,22 @@ class AlarmScheduler {
           importance: Importance.max,
         ),
       );
+      await android.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _strongChannelId,
+          'Strong Alarms',
+          description: 'Full-screen alarms with long sound',
+          importance: Importance.max,
+        ),
+      );
+      await android.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _constantChannelId,
+          'Constant Alarms',
+          description: 'Full-screen alarms that ring continuously',
+          importance: Importance.max,
+        ),
+      );
     }
   }
 
@@ -171,11 +190,6 @@ class AlarmScheduler {
         'AlarmScheduler: scheduling skipped on web (unsupported by browsers).',
       );
       return const [];
-    }
-    if (preset == AlarmPreset.strong || preset == AlarmPreset.constant) {
-      throw UnimplementedError(
-        '${preset.name} preset is Phase 2 — use light or medium for now.',
-      );
     }
 
     final ids = [
@@ -422,8 +436,30 @@ class AlarmScheduler {
           ),
         );
       case AlarmPreset.strong:
+        return NotificationDetails(
+          android: AndroidNotificationDetails(
+            _strongChannelId,
+            'Strong Alarms',
+            importance: Importance.max,
+            priority: Priority.max,
+            category: AndroidNotificationCategory.alarm,
+            fullScreenIntent: true,
+            actions: actions,
+          ),
+        );
       case AlarmPreset.constant:
-        throw UnimplementedError('${preset.name} preset is Phase 2.');
+        return NotificationDetails(
+          android: AndroidNotificationDetails(
+            _constantChannelId,
+            'Constant Alarms',
+            importance: Importance.max,
+            priority: Priority.max,
+            category: AndroidNotificationCategory.alarm,
+            fullScreenIntent: true,
+            additionalFlags: Int32List.fromList([4]), // FLAG_INSISTENT
+            actions: actions,
+          ),
+        );
     }
   }
 
