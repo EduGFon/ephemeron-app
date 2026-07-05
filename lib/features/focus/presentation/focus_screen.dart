@@ -90,14 +90,17 @@ class FocusScreen extends ConsumerWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          _formatDuration(timerState.elapsed),
-                          style: TextStyle(
-                            fontFamily: 'Fraunces',
-                            fontSize: 72,
-                            fontWeight: FontWeight.w600,
-                            color: palette.text,
-                            height: 1.0,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _formatDuration(timerState.elapsed),
+                            style: TextStyle(
+                              fontFamily: 'Fraunces',
+                              fontSize: 72,
+                              fontWeight: FontWeight.w600,
+                              color: palette.text,
+                              height: 1.0,
+                            ),
                           ),
                         ),
                         if (timerState.mode == FocusMode.pomodoro)

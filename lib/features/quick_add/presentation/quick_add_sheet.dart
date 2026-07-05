@@ -9,6 +9,7 @@ import '../../calendar/data/calendar_repository.dart';
 import '../../calendar/domain/calendar_event.dart';
 import '../../tasks/application/task_providers.dart';
 import '../../tasks/data/task_repository.dart';
+import '../../habits/presentation/habit_form_sheet.dart';
 import '../../../presentation/shell/nav_section.dart';
 import '../domain/quick_add_parser.dart';
 
@@ -135,6 +136,12 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SegmentedButton<QuickAddTarget>(
+            style: SegmentedButton.styleFrom(
+              backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+              foregroundColor: theme.colorScheme.onSurface,
+              selectedBackgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
+              selectedForegroundColor: theme.colorScheme.primary,
+            ),
             segments: const [
               ButtonSegment(
                 value: QuickAddTarget.task,
@@ -262,6 +269,12 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
   Future<void> _save() async {
     setState(() => _isSaving = true);
     try {
+      if (_target == QuickAddTarget.habit) {
+        if (mounted) Navigator.of(context).pop();
+        showHabitFormSheet(context, initialName: _parsed.cleanTitle);
+        return;
+      }
+      
       if (_target == QuickAddTarget.task) {
         await _saveTask();
       } else {

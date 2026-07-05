@@ -1,30 +1,52 @@
-// `show Value` only — importing the whole drift library also brings in
-// its own `Column` class, which collides with Flutter's widget of the
-// same name and fails to compile ("Column is imported from both...").
-// Found during real-device testing.
+import 'dart:ui';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/theme_engine_provider.dart';
+import '../../../core/theme/theme_palettes.dart';
 import '../../../data/local/database.dart';
 import '../../alarms/domain/alarm_preset.dart';
 import '../../alarms/domain/reminder_offset.dart';
 import '../application/task_providers.dart';
 import '../domain/task_recurrence.dart';
 
-/// Opens the add/edit sheet. Pass [existingTask] to edit, omit to create
-/// a new task in [listId].
 Future<void> showTaskFormSheet(
   BuildContext context, {
   required String listId,
   Task? existingTask,
 }) {
-  return showModalBottomSheet<void>(
+  return showGeneralDialog<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (context) =>
-        TaskFormSheet(listId: listId, existingTask: existingTask),
+    barrierDismissible: true,
+    barrierLabel: 'Dismiss',
+    barrierColor: Colors.black54,
+    transitionDuration: const Duration(milliseconds: 300),
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return Center(
+        child: SingleChildScrollView(
+          child: Material(
+            color: Colors.transparent,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: TaskFormSheet(listId: listId, existingTask: existingTask),
+            ),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+      return ScaleTransition(
+        scale: curve,
+        child: FadeTransition(
+          opacity: animation,
+          child: child,
+        ),
+      );
+    },
   );
 }
 
@@ -77,160 +99,261 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              _isEditing ? 'Edit task' : 'New task',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _titleController,
-              autofocus: !_isEditing,
-              decoration: const InputDecoration(labelText: 'Title'),
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-              ),
-              minLines: 1,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const SizedBox(height: 16),
-            _buildPriorityPicker(theme),
-            const SizedBox(height: 16),
-            _buildDuePicker(context, theme),
-            if (_dueDate != null) ...[
-              const SizedBox(height: 16),
-              _buildAlarmPicker(theme),
-            ],
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _isSaving || _titleController.text.trim().isEmpty
-                  ? null
-                  : _save,
-              child: _isSaving
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(_isEditing ? 'Save' : 'Add task'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPriorityPicker(ThemeData theme) {
-    const labels = ['None', 'Low', 'Medium', 'High'];
-    return Row(
-      children: [
-        Text('Priority', style: theme.textTheme.bodyMedium),
-        const Spacer(),
-        SegmentedButton<int>(
-          segments: [
-            for (var i = 0; i < labels.length; i++)
-              ButtonSegment(value: i, label: Text(labels[i])),
-          ],
-          selected: {_priority},
-          onSelectionChanged: (selection) =>
-              setState(() => _priority = selection.first),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDuePicker(BuildContext context, ThemeData theme) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            _dueDate == null
-                ? 'No due date'
-                : '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-'
-                      '${_dueDate!.day.toString().padLeft(2, '0')}'
-                      '${_dueHasTime ? ' ${_dueDate!.hour.toString().padLeft(2, '0')}:'
-                                '${_dueDate!.minute.toString().padLeft(2, '0')}' : ''}',
-            style: theme.textTheme.bodyLarge,
-          ),
-        ),
-        TextButton(onPressed: _pickDate, child: const Text('Set date')),
-        if (_dueDate != null)
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => setState(() {
-              _dueDate = null;
-              _alarmPreset = null;
-              _selectedOffsets = {};
-            }),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildAlarmPicker(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('Alarm', style: theme.textTheme.bodyMedium),
-            const Spacer(),
-            DropdownButton<AlarmPreset?>(
-              value: _alarmPreset,
-              hint: const Text('None'),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('None')),
-                DropdownMenuItem(
-                  value: AlarmPreset.light,
-                  child: Text('Light'),
-                ),
-                DropdownMenuItem(
-                  value: AlarmPreset.medium,
-                  child: Text('Medium'),
-                ),
-              ],
-              onChanged: (value) => setState(() => _alarmPreset = value),
-            ),
-          ],
-        ),
-        if (_alarmPreset != null) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final offset in ReminderOffset.presets)
-                FilterChip(
-                  label: Text(offset.label),
-                  selected: _selectedOffsets.contains(offset),
-                  onSelected: (selected) => setState(() {
-                    if (selected) {
-                      _selectedOffsets.add(offset);
-                    } else {
-                      _selectedOffsets.remove(offset);
-                    }
-                  }),
-                ),
-            ],
+    final palette = ref.watch(themeEngineProvider);
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      constraints: const BoxConstraints(maxWidth: 500),
+      decoration: BoxDecoration(
+        color: palette.surface.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: palette.text.withValues(alpha: 0.1), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 40,
+            offset: const Offset(0, 20),
           ),
         ],
-      ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _isEditing ? 'Edit task' : 'New task',
+                      style: TextStyle(color: palette.text, fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    if (_isEditing)
+                      IconButton(
+                        icon: Icon(Icons.delete_outline, color: Colors.redAccent.withValues(alpha: 0.8)),
+                        onPressed: () async {
+                          await ref.read(taskRepositoryProvider).softDeleteTask(widget.existingTask!.id);
+                          if (context.mounted) Navigator.pop(context);
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _titleController,
+                  autofocus: !_isEditing,
+                  style: TextStyle(color: palette.text),
+                  decoration: InputDecoration(
+                    labelText: 'Title',
+                    labelStyle: TextStyle(color: palette.text.withValues(alpha: 0.6)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: palette.text.withValues(alpha: 0.2)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: palette.primary, width: 2),
+                    ),
+                  ),
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _descriptionController,
+                  style: TextStyle(color: palette.text),
+                  decoration: InputDecoration(
+                    labelText: 'Description (optional)',
+                    labelStyle: TextStyle(color: palette.text.withValues(alpha: 0.6)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: palette.text.withValues(alpha: 0.2)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: palette.primary, width: 2),
+                    ),
+                  ),
+                  minLines: 1,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+                const SizedBox(height: 16),
+                _buildPriorityPicker(palette),
+                const SizedBox(height: 16),
+                _buildDuePicker(context, palette),
+                if (_dueDate != null) ...[
+                  const SizedBox(height: 16),
+                  _buildAlarmPicker(palette),
+                ],
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: palette.text,
+                          side: BorderSide(color: palette.text.withValues(alpha: 0.2)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: palette.primary,
+                          foregroundColor: palette.background,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: _isSaving || _titleController.text.trim().isEmpty ? null : _save,
+                        child: _isSaving
+                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                            : Text(_isEditing ? 'Save' : 'Add task', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriorityPicker(AppPalette palette) {
+    const labels = ['None', 'Low', 'Medium', 'High'];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: palette.text.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Priority', style: TextStyle(color: palette.text, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          SegmentedButton<int>(
+            style: SegmentedButton.styleFrom(
+              backgroundColor: palette.surface,
+              foregroundColor: palette.text,
+              selectedBackgroundColor: palette.primary.withValues(alpha: 0.2),
+              selectedForegroundColor: palette.primary,
+            ),
+            segments: [
+              for (var i = 0; i < labels.length; i++)
+                ButtonSegment(value: i, label: Text(labels[i])),
+            ],
+            selected: {_priority},
+            onSelectionChanged: (selection) => setState(() => _priority = selection.first),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDuePicker(BuildContext context, AppPalette palette) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: palette.text.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _dueDate == null
+                  ? 'No due date'
+                  : '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-'
+                        '${_dueDate!.day.toString().padLeft(2, '0')}'
+                        '${_dueHasTime ? ' ${_dueDate!.hour.toString().padLeft(2, '0')}:'
+                                  '${_dueDate!.minute.toString().padLeft(2, '0')}' : ''}',
+              style: TextStyle(color: palette.text, fontWeight: FontWeight.w500),
+            ),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: palette.primary),
+            onPressed: _pickDate, 
+            child: const Text('Set date', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          if (_dueDate != null)
+            IconButton(
+              icon: Icon(Icons.close, color: palette.text.withValues(alpha: 0.6)),
+              onPressed: () => setState(() {
+                _dueDate = null;
+                _alarmPreset = null;
+                _selectedOffsets = {};
+              }),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlarmPicker(AppPalette palette) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: palette.text.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Alarm', style: TextStyle(color: palette.text, fontWeight: FontWeight.w500)),
+              const Spacer(),
+              DropdownButton<AlarmPreset?>(
+                dropdownColor: palette.surface,
+                underline: const SizedBox.shrink(),
+                style: TextStyle(color: palette.text),
+                value: _alarmPreset,
+                hint: Text('None', style: TextStyle(color: palette.text.withValues(alpha: 0.6))),
+                items: const [
+                  DropdownMenuItem(value: null, child: Text('None')),
+                  DropdownMenuItem(value: AlarmPreset.light, child: Text('Light (Notification)')),
+                  DropdownMenuItem(value: AlarmPreset.medium, child: Text('Medium (Full Screen)')),
+                ],
+                onChanged: (value) => setState(() => _alarmPreset = value),
+              ),
+            ],
+          ),
+          if (_alarmPreset != null) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final offset in ReminderOffset.presets)
+                  FilterChip(
+                    label: Text(offset.label, style: TextStyle(color: _selectedOffsets.contains(offset) ? palette.background : palette.text)),
+                    selected: _selectedOffsets.contains(offset),
+                    selectedColor: palette.primary,
+                    backgroundColor: palette.text.withValues(alpha: 0.05),
+                    onSelected: (selected) => setState(() {
+                      if (selected) {
+                        _selectedOffsets.add(offset);
+                      } else {
+                        _selectedOffsets.remove(offset);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 

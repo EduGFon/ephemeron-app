@@ -159,7 +159,7 @@ class FocusTimerController extends Notifier<FocusTimerState> {
 
     _accumulatedBeforePause = Duration.zero;
     _trueSessionStart = null;
-    state = const FocusTimerState();
+    state = FocusTimerState(mode: state.mode);
     return sessionId;
   }
 }
