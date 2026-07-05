@@ -22,11 +22,9 @@ class AppShell extends ConsumerWidget {
 
   final StatefulNavigationShell navigationShell;
 
-  // Matches NavSection's branchIndex for calendar/tasks/matrix — the
-  // only sections with a quick-add flow so far. Habits/Countdown/Focus/
-  // Notes get their own creation entry points in their respective future
-  // build steps (see the brainstorm's per-section Create button variants).
-  static const _sectionsWithQuickAdd = {0, 1, 2};
+  // Matches NavSection's branchIndex for all 7 sections.
+  // The quick-add flow now covers all creations contextually based on the branch.
+  static const _sectionsWithQuickAdd = {0, 1, 2, 3, 4, 5, 6};
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -50,7 +48,15 @@ class AppShell extends ConsumerWidget {
       body: navigationShell,
       floatingActionButton: showQuickAdd
           ? FloatingActionButton(
-              onPressed: () => showQuickAddSheet(context),
+              onPressed: () {
+                final currentSection = pinned.firstWhere(
+                  (s) => s.branchIndex == navigationShell.currentIndex,
+                  orElse: () => overflow.firstWhere(
+                    (s) => s.branchIndex == navigationShell.currentIndex,
+                  ),
+                );
+                showQuickAddSheet(context, currentSection: currentSection);
+              },
               child: const Icon(Icons.add),
             )
           : null,

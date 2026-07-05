@@ -7,11 +7,12 @@ import '../../calendar/data/calendar_repository.dart';
 import '../../calendar/domain/calendar_event.dart';
 import '../../tasks/application/task_providers.dart';
 import '../../tasks/data/task_repository.dart';
+import '../../../presentation/shell/nav_section.dart';
 import '../domain/quick_add_parser.dart';
 
-enum QuickAddTarget { task, event }
+enum QuickAddTarget { task, event, habit, countdown, note }
 
-Future<void> showQuickAddSheet(BuildContext context, {DateTime? initialDay}) {
+Future<void> showQuickAddSheet(BuildContext context, {DateTime? initialDay, NavSection? currentSection}) {
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -27,7 +28,7 @@ Future<void> showQuickAddSheet(BuildContext context, {DateTime? initialDay}) {
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: QuickAddSheet(initialDay: initialDay),
+              child: QuickAddSheet(initialDay: initialDay, currentSection: currentSection),
             ),
           ),
         ),
@@ -56,9 +57,10 @@ Future<void> showQuickAddSheet(BuildContext context, {DateTime? initialDay}) {
 /// this step's job was specifically unifying Task/Event creation behind
 /// one button and adding the shorthand parser.
 class QuickAddSheet extends ConsumerStatefulWidget {
-  const QuickAddSheet({this.initialDay, super.key});
+  const QuickAddSheet({this.initialDay, this.currentSection, super.key});
 
   final DateTime? initialDay;
+  final NavSection? currentSection;
 
   @override
   ConsumerState<QuickAddSheet> createState() => _QuickAddSheetState();
@@ -66,11 +68,30 @@ class QuickAddSheet extends ConsumerStatefulWidget {
 
 class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
   final _titleController = TextEditingController();
-  QuickAddTarget _target = QuickAddTarget.task;
+  late QuickAddTarget _target;
   QuickAddParseResult _parsed = QuickAddParser.parse('');
   DateTime? _dueDate;
   bool _dueHasTime = false;
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _target = _determineTarget(widget.currentSection);
+  }
+
+  QuickAddTarget _determineTarget(NavSection? section) {
+    if (section == null) return QuickAddTarget.task;
+    return switch (section) {
+      NavSection.calendar => QuickAddTarget.event,
+      NavSection.tasks => QuickAddTarget.task,
+      NavSection.matrix => QuickAddTarget.task,
+      NavSection.habits => QuickAddTarget.habit,
+      NavSection.countdown => QuickAddTarget.countdown,
+      NavSection.focus => QuickAddTarget.task,
+      NavSection.notes => QuickAddTarget.note,
+    };
+  }
 
   @override
   void dispose() {
@@ -116,6 +137,11 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
                 value: QuickAddTarget.event,
                 label: Text('Event'),
                 icon: Icon(Icons.calendar_month_outlined),
+              ),
+              ButtonSegment(
+                value: QuickAddTarget.habit,
+                label: Text('Habit'),
+                icon: Icon(Icons.repeat_outlined),
               ),
             ],
             selected: {_target},

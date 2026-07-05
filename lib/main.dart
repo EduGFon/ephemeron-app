@@ -3,13 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/routing/app_router.dart';
 import 'core/settings/app_settings_provider.dart';
+import 'core/settings/power_saving_manager.dart';
+import 'core/settings/shared_preferences_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'features/alarms/application/alarm_action_manager_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'features/alarms/application/alarm_scheduler_provider.dart';
 import 'features/countdown/application/countdown_providers.dart';
 import 'features/habits/application/habit_providers.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  sharedPrefs = await SharedPreferences.getInstance();
   runApp(const ProviderScope(child: EphemeronApp()));
 }
 
@@ -34,6 +39,8 @@ class EphemeronApp extends ConsumerWidget {
     ref.watch(countdownAlarmsRefreshProvider);
     // Handles notification done/snooze actions while the app is alive.
     ref.watch(alarmActionManagerProvider);
+    // Listens to app lifecycle changes to refresh battery state
+    ref.watch(powerSavingManagerProvider);
 
     final themeMode = switch (settings.themeMode) {
       ThemeModeOption.system => ThemeMode.system,

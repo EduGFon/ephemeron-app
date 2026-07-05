@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/settings/app_settings_provider.dart';
+import '../../../presentation/shell/pinned_sections_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -38,6 +39,19 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+          const Divider(),
+          const _SectionHeader('Navigation Bar'),
+          ListTile(
+            title: const Text('Customize Navigation Bar'),
+            subtitle: const Text('Reorder tabs and overflow items'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              showModalBottomSheet<void>(
+                context: context,
+                builder: (context) => const _NavigationBarCustomizationSheet(),
+              );
+            },
           ),
           const Divider(),
           const _SectionHeader('Battery & motion'),
@@ -123,6 +137,63 @@ class _SectionHeader extends StatelessWidget {
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
           color: Theme.of(context).colorScheme.primary,
         ),
+      ),
+    );
+  }
+}
+
+class _NavigationBarCustomizationSheet extends ConsumerWidget {
+  const _NavigationBarCustomizationSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final allSections = ref.watch(allSectionsOrderProvider);
+
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Reorder Sections',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text('Drag to reorder. The top 5 appear on the bottom bar, the rest in "More".'),
+          ),
+          Expanded(
+            child: ReorderableListView.builder(
+              itemCount: allSections.length,
+              onReorderItem: (oldIndex, newIndex) {
+                if (oldIndex < newIndex) {
+                  newIndex -= 1;
+                }
+                final item = allSections[oldIndex];
+                final newList = List.of(allSections);
+                newList.removeAt(oldIndex);
+                newList.insert(newIndex, item);
+                ref.read(allSectionsOrderProvider.notifier).updateOrder(newList);
+              },
+              itemBuilder: (context, index) {
+                final section = allSections[index];
+                final isPinned = index < 5;
+                return ListTile(
+                  key: ValueKey(section),
+                  leading: Icon(isPinned ? section.icon : Icons.more_horiz),
+                  title: Text(section.label),
+                  trailing: const Icon(Icons.drag_handle),
+                  tileColor: isPinned 
+                      ? Theme.of(context).colorScheme.surface
+                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
