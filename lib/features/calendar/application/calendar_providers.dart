@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../data/local/database_provider.dart';
 import '../../alarms/application/alarm_scheduler_provider.dart';
@@ -41,12 +40,34 @@ final dayEventsProvider =
   }).toList();
 });
 
-final selectedDayProvider = StateProvider<DateTime>((ref) {
-  final now = DateTime.now();
-  return DateTime(now.year, now.month, now.day);
-});
+class SelectedDayNotifier extends Notifier<DateTime> {
+  @override
+  DateTime build() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
 
-final focusedMonthProvider = StateProvider<DateTime>((ref) {
-  final now = DateTime.now();
-  return DateTime(now.year, now.month, 1);
-});
+  void setDay(DateTime day) {
+    state = day;
+  }
+}
+
+final selectedDayProvider = NotifierProvider<SelectedDayNotifier, DateTime>(
+  () => SelectedDayNotifier(),
+);
+
+class FocusedMonthNotifier extends Notifier<DateTime> {
+  @override
+  DateTime build() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, 1);
+  }
+
+  void setMonth(DateTime month) {
+    state = month;
+  }
+}
+
+final focusedMonthProvider = NotifierProvider<FocusedMonthNotifier, DateTime>(
+  () => FocusedMonthNotifier(),
+);

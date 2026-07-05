@@ -100,8 +100,63 @@ class SettingsScreen extends ConsumerWidget {
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: _WebReminderNotice(),
             ),
+          const Divider(),
+          const _SectionHeader('Calendar'),
+          ListTile(
+            title: const Text('First day of the week'),
+            subtitle: Text(_dayName(settings.calendarStartDay)),
+            trailing: const Icon(Icons.chevron_right, size: 20),
+            onTap: () {
+              _showStartDayPicker(context, ref, settings.calendarStartDay);
+            },
+          ),
         ],
       ),
+    );
+   }
+
+  static String _dayName(int isoDay) {
+    const names = {
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
+    };
+    return names[isoDay] ?? 'Sunday';
+  }
+
+  static void _showStartDayPicker(BuildContext context, WidgetRef ref, int current) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('First day of the week', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              for (final day in [7, 1, 6]) // Sunday, Monday, Saturday — the common choices
+                RadioListTile<int>(
+                  title: Text(_dayName(day)),
+                  value: day,
+                  groupValue: current,
+                  onChanged: (value) {
+                    if (value != null) {
+                      ref.read(appSettingsProvider.notifier).setCalendarStartDay(value);
+                      Navigator.pop(sheetContext);
+                    }
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 }

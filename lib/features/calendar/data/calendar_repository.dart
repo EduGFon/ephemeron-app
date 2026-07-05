@@ -57,7 +57,36 @@ class CalendarRepository {
     required DateTime rangeEnd,
   }) async {
     if (_authRepository.currentAccount == null) {
-      throw const CalendarNotConnectedException();
+      // Mock events for Phase 3 UI testing until Phase 4 sync is built
+      return [
+        CalendarEvent(
+          id: 'mock_1',
+          title: 'Design Review',
+          start: DateTime.now().add(const Duration(hours: 1)),
+          end: DateTime.now().add(const Duration(hours: 2)),
+          isAllDay: false,
+          colorId: '3', // Grape
+          tags: ['Work', 'Design'],
+        ),
+        CalendarEvent(
+          id: 'mock_2',
+          title: 'Dentist Appointment',
+          start: DateTime.now().add(const Duration(days: 1, hours: -2)),
+          end: DateTime.now().add(const Duration(days: 1, hours: -1)),
+          isAllDay: false,
+          colorId: '11', // Tomato
+          tags: ['Personal', 'Health'],
+        ),
+        CalendarEvent(
+          id: 'mock_3',
+          title: 'Company Retreat',
+          start: DateTime.now().add(const Duration(days: 3)),
+          end: DateTime.now().add(const Duration(days: 5)),
+          isAllDay: true,
+          colorId: '7', // Peacock
+          tags: ['Work'],
+        ),
+      ];
     }
 
     final api = await _api();

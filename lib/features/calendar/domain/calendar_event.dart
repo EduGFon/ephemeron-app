@@ -40,6 +40,8 @@ class CalendarEvent {
     required this.isAllDay,
     this.colorId,
     this.reminderMinutes = const [],
+    this.tags = const [],
+    this.isDeleted = false,
   });
 
   final String id;
@@ -56,6 +58,9 @@ class CalendarEvent {
   /// truth for the local alarms Step 4 schedules; see CalendarRepository
   /// for why there's no local "preset" field per event yet.
   final List<int> reminderMinutes;
+  
+  final List<String> tags;
+  final bool isDeleted;
 
   static CalendarEvent fromGoogle(gcal.Event event) {
     final startDateTime = event.start?.dateTime;
@@ -78,6 +83,8 @@ class CalendarEvent {
               .whereType<int>()
               .toList() ??
           const [],
+      tags: const [], // Will be hydrated by local DB in Phase 4
+      isDeleted: false,
     );
   }
 

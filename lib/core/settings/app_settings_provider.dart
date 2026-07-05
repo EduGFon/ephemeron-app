@@ -13,6 +13,7 @@ class AppSettings {
     this.powerSavingMode = false,
     this.osBatterySaverActive = false,
     this.usePillNavigation = true,
+    this.calendarStartDay = 7, // Sunday by default (1=Mon..7=Sun)
   });
 
   final bool reducedMotion;
@@ -28,6 +29,10 @@ class AppSettings {
 
   final bool usePillNavigation;
 
+  /// First day of the week for the Calendar view.
+  /// Uses ISO weekday values: 1=Monday ... 7=Sunday.
+  final int calendarStartDay;
+
   /// Effective "should we skip decorative animation" flag: the user's
   /// explicit toggle, their manual power-saving override, OR the OS
   /// actually reporting battery saver is on. Every animated widget in
@@ -39,12 +44,14 @@ class AppSettings {
     bool? powerSavingMode,
     bool? osBatterySaverActive,
     bool? usePillNavigation,
+    int? calendarStartDay,
   }) {
     return AppSettings(
       reducedMotion: reducedMotion ?? this.reducedMotion,
       powerSavingMode: powerSavingMode ?? this.powerSavingMode,
       osBatterySaverActive: osBatterySaverActive ?? this.osBatterySaverActive,
       usePillNavigation: usePillNavigation ?? this.usePillNavigation,
+      calendarStartDay: calendarStartDay ?? this.calendarStartDay,
     );
   }
 }
@@ -53,6 +60,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   static const _reducedMotionKey = 'settings.reducedMotion';
   static const _powerSavingKey = 'settings.powerSavingMode';
   static const _usePillNavigationKey = 'settings.usePillNavigation';
+  static const _calendarStartDayKey = 'settings.calendarStartDay';
   final _battery = Battery();
 
   @override
@@ -70,6 +78,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       reducedMotion: prefs.getBool(_reducedMotionKey) ?? false,
       powerSavingMode: prefs.getBool(_powerSavingKey) ?? false,
       usePillNavigation: prefs.getBool(_usePillNavigationKey) ?? true,
+      calendarStartDay: prefs.getInt(_calendarStartDayKey) ?? 7,
     );
   }
 
@@ -104,6 +113,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(usePillNavigation: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_usePillNavigationKey, value);
+  }
+
+  Future<void> setCalendarStartDay(int value) async {
+    state = state.copyWith(calendarStartDay: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_calendarStartDayKey, value);
   }
 }
 
