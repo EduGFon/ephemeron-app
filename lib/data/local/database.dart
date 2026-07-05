@@ -18,7 +18,7 @@ part 'database.g.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase([QueryExecutor? connection]) : super(connection ?? _openConnection());
 
   /// Bump this and add a MigrationStrategy step whenever a table shape
   /// changes in a later build step (e.g. when Habits gets typed frequency

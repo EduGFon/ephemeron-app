@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/routing/app_router.dart';
 import 'core/settings/app_settings_provider.dart';
 import 'core/theme/app_theme.dart';
+import 'features/alarms/application/alarm_action_manager_provider.dart';
 import 'features/alarms/application/alarm_scheduler_provider.dart';
 import 'features/countdown/application/countdown_providers.dart';
 import 'features/habits/application/habit_providers.dart';
@@ -31,6 +32,8 @@ class EphemeronApp extends ConsumerWidget {
     ref.watch(habitAlarmsRefreshProvider);
     // Same idea for yearly countdowns rolling forward past their date.
     ref.watch(countdownAlarmsRefreshProvider);
+    // Handles notification done/snooze actions while the app is alive.
+    ref.watch(alarmActionManagerProvider);
 
     final themeMode = switch (settings.themeMode) {
       ThemeModeOption.system => ThemeMode.system,

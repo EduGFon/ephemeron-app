@@ -1,14 +1,19 @@
 import 'dart:async';
+import 'dart:convert' show jsonDecode;
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value, DoUpdate;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show MaterialPageRoute;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:uuid/uuid.dart';
 
 import '../../../core/routing/root_navigator_key.dart';
+import '../../../data/local/database.dart';
+import '../../tasks/domain/task_recurrence.dart';
 import '../domain/alarm_payload.dart';
 import '../domain/alarm_preset.dart';
 import '../domain/reminder_offset.dart';
@@ -497,17 +502,16 @@ class AlarmScheduler {
 }
 
 /// Runs in a separate isolate when the user taps a notification action
-/// while the app is fully terminated — it has no access to this app's
-/// Riverpod ProviderScope, Drift database, or navigator, which is why it
-/// can only do the narrow, self-contained things below (reschedule via a
-/// fresh plugin instance; cancel sibling IDs) rather than updating any
-/// app state. A full task/habit completion recorded this way will only
-/// be reflected once the app is next opened — that reconciliation is
-/// deferred to when Tasks/Habits repositories exist (Steps 3 and 6).
+/// while the app is fully terminated. Timezones are initialized in this isolate,
+/// and a direct sqlite/drift database connection is opened to immediately complete
+/// tasks/habits and roll forward recurring schedules.
 @pragma('vm:entry-point')
-void notificationTapBackground(NotificationResponse response) {
+void notificationTapBackground(NotificationResponse response) async {
   final payload = AlarmPayload.decode(response.payload);
   if (payload == null) return;
+
+  // Initialize timezones in this background isolate
+  tz_data.initializeTimeZones();
 
   final plugin = FlutterLocalNotificationsPlugin();
 
@@ -530,6 +534,104 @@ void notificationTapBackground(NotificationResponse response) {
     case _doneActionId:
       for (final id in payload.siblingIds) {
         unawaited(plugin.cancel(id: id));
+      }
+
+      // Perform database updates in the background isolate
+      try {
+        final db = AppDatabase();
+
+        // 1. Check if the entity is a Task and complete it
+        final task = await (db.select(db.tasks)
+              ..where((t) => t.id.equals(payload.entityId)))
+            .getSingleOrNull();
+
+        if (task != null) {
+          await (db.update(db.tasks)
+                ..where((t) => t.id.equals(payload.entityId)))
+              .write(
+            TasksCompanion(
+              isCompleted: const Value(true),
+              completedAt: Value(DateTime.now()),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
+
+          // Cancel remaining alarms for this task
+          if (task.scheduledAlarmIds != null) {
+            final raw = task.scheduledAlarmIds;
+            if (raw != null && raw.isNotEmpty) {
+              final alarmIds = (jsonDecode(raw) as List<dynamic>).cast<int>();
+              for (final id in alarmIds) {
+                unawaited(plugin.cancel(id: id));
+              }
+            }
+          }
+
+          await (db.update(db.tasks)
+                ..where((t) => t.id.equals(payload.entityId)))
+              .write(
+            const TasksCompanion(scheduledAlarmIds: Value(null)),
+          );
+
+          // Handle task recurrence
+          final recurrenceRule = task.recurrenceRule;
+          if (recurrenceRule != null && task.dueDate != null) {
+            final recurrence = TaskRecurrence.decode(recurrenceRule);
+            if (recurrence.isRecurring) {
+              final nextDue = recurrence.nextOccurrence(task.dueDate!);
+              final nextId = const Uuid().v4();
+              await db.into(db.tasks).insert(
+                TasksCompanion.insert(
+                  id: Value(nextId),
+                  listId: task.listId,
+                  parentTaskId: Value(task.parentTaskId),
+                  title: task.title,
+                  description: Value(task.description),
+                  priority: Value(task.priority),
+                  dueDate: Value(nextDue),
+                  dueHasTime: Value(task.dueHasTime),
+                  recurrenceRule: Value(task.recurrenceRule),
+                  durationMinutes: Value(task.durationMinutes),
+                  alarmPreset: Value(task.alarmPreset),
+                  reminderOffsetsMinutes: Value(task.reminderOffsetsMinutes),
+                ),
+              );
+            }
+          }
+        }
+
+        // 2. Check if the entity is a Habit and log completion for today
+        final habit = await (db.select(db.habits)
+              ..where((h) => h.id.equals(payload.entityId)))
+            .getSingleOrNull();
+
+        if (habit != null) {
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          await db.into(db.habitLogs).insert(
+            HabitLogsCompanion.insert(
+              habitId: habit.id,
+              date: today,
+              amount: Value(habit.goalAmount ?? 1),
+              isCompleted: const Value(true),
+            ),
+            onConflict: DoUpdate(
+              (old) => HabitLogsCompanion(
+                habitId: Value(habit.id),
+                date: Value(today),
+                amount: Value(habit.goalAmount ?? 1),
+                isCompleted: const Value(true),
+              ),
+              target: [db.habitLogs.habitId, db.habitLogs.date],
+            ),
+          );
+        }
+
+        await db.close();
+      } catch (e) {
+        debugPrint(
+          'AlarmScheduler background isolate DB update failed: $e',
+        );
       }
   }
 }

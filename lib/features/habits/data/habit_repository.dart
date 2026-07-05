@@ -124,7 +124,7 @@ class HabitRepository {
   }
 
   Future<void> archiveHabit(String habitId) async {
-    final habit = await _getHabit(habitId);
+    final habit = await getHabit(habitId);
     if (habit == null) return;
     await (_db.update(_db.habits)..where((h) => h.id.equals(habitId))).write(
       const HabitsCompanion(isArchived: Value(true)),
@@ -133,7 +133,7 @@ class HabitRepository {
   }
 
   Future<void> deleteHabit(String habitId) async {
-    final habit = await _getHabit(habitId);
+    final habit = await getHabit(habitId);
     if (habit != null) await _cancelAlarms(habit);
     await (_db.delete(
       _db.habitLogs,
@@ -188,7 +188,7 @@ class HabitRepository {
   /// — the quick one-tap log action, as opposed to [logProgress] which
   /// sets an exact amount (used for manual correction).
   Future<void> quickLogToday(String habitId) async {
-    final habit = await _getHabit(habitId);
+    final habit = await getHabit(habitId);
     if (habit == null) return;
     final today = _normalizeDay(DateTime.now());
     final existing =
@@ -328,31 +328,32 @@ class HabitRepository {
     Map<DateTime, HabitLog> logsByDay,
     DateTime today,
   ) {
-    // Simple MVP approximation: longest run of consecutive completed
-    // applicable days across all logged history. Weekly habits reuse the
-    // current-streak figure rather than a full historical scan — a
-    // reasonable simplification for a first metrics pass.
+    // Walk through every day from startDate to today chronologically,
+    // incrementing the streak on completed applicable days and resetting
+    // it on missed applicable days (excluding today if not yet completed).
     if (frequency.type == HabitFrequencyType.weekly) {
       return _computeWeeklyStreak(habit, frequency, logsByDay, today);
     }
-    if (logsByDay.isEmpty) return 0;
-    final sortedDays = logsByDay.keys.toList()..sort();
+
     var longest = 0;
     var current = 0;
-    DateTime? previous;
-    for (final day in sortedDays) {
-      if (!(logsByDay[day]?.isCompleted ?? false)) {
-        current = 0;
-        previous = day;
-        continue;
+    var day = _normalizeDay(habit.startDate);
+    final end = today;
+
+    while (!day.isAfter(end)) {
+      if (frequency.isDueOn(day, habitStartDate: habit.startDate)) {
+        final completed = logsByDay[day]?.isCompleted ?? false;
+        if (completed) {
+          current++;
+          if (current > longest) longest = current;
+        } else {
+          // Today not completed shouldn't break the streak if it's today
+          if (day != today) {
+            current = 0;
+          }
+        }
       }
-      if (previous != null && day.difference(previous).inDays == 1) {
-        current++;
-      } else {
-        current = 1;
-      }
-      longest = current > longest ? current : longest;
-      previous = day;
+      day = day.add(const Duration(days: 1));
     }
     return longest;
   }
@@ -365,7 +366,7 @@ class HabitRepository {
   // Alarm wiring
   // ---------------------------------------------------------------------
 
-  Future<Habit?> _getHabit(String habitId) {
+  Future<Habit?> getHabit(String habitId) {
     return (_db.select(
       _db.habits,
     )..where((h) => h.id.equals(habitId))).getSingleOrNull();
@@ -386,7 +387,7 @@ class HabitRepository {
   /// alarm to, so they get a best-effort one-shot for the next occurrence
   /// only; see [refreshOneShotAlarms] for how those get kept current.
   Future<void> _syncAlarms(String habitId) async {
-    final habit = await _getHabit(habitId);
+    final habit = await getHabit(habitId);
     if (habit == null) return;
 
     final existingIds = _decodeAlarmIds(habit.scheduledAlarmIds);
