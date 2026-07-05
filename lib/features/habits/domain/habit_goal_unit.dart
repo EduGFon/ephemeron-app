@@ -5,18 +5,11 @@
 /// FocusRepository credit session time to a habit's goal exactly, rather
 /// than guessing from a substring match against whatever the user typed.
 enum HabitGoalUnit {
+  times('times'),
   minutes('min', isTimeBased: true),
   hours('hour', isTimeBased: true),
-  milliliters('ml'),
-  liters('L'),
-  glasses('glass'),
   kilometers('km'),
-  miles('mi'),
-  steps('steps'),
-  pages('pages'),
-  times('times'),
-  reps('reps'),
-  calories('kcal');
+  pages('pages');
 
   const HabitGoalUnit(this.label, {this.isTimeBased = false});
 

@@ -67,9 +67,6 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
     text: widget.existingHabit?.name ?? widget.initialName,
   );
   late TextEditingController _amountController;
-  late final _unitController = TextEditingController(
-    text: widget.existingHabit?.goalUnit,
-  );
   late final _intervalController = TextEditingController(text: '1');
   late TextEditingController _incrementController;
 
@@ -79,8 +76,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
   int _timesPerWeek = 3;
   late String _goalType = widget.existingHabit?.goalType ?? 'binary';
   late String _goalDuration = widget.existingHabit?.goalDuration ?? 'forever';
-  HabitGoalUnit? _selectedUnit;
-  bool _isCustomUnit = false;
+  HabitGoalUnit _selectedUnit = HabitGoalUnit.times;
   int? _reminderHour;
   int? _reminderMinute;
   AlarmPreset? _alarmPreset;
@@ -113,9 +109,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
     _weekdays = frequency.weekdays.toSet();
     _timesPerWeek = frequency.timesPerWeek ?? 3;
     _intervalController.text = (frequency.intervalDays ?? 1).toString();
-    final parsedUnit = HabitGoalUnit.tryParse(habit?.goalUnit);
-    _selectedUnit = parsedUnit;
-    _isCustomUnit = habit?.goalUnit != null && parsedUnit == null;
+    _selectedUnit = HabitGoalUnit.tryParse(habit?.goalUnit) ?? HabitGoalUnit.times;
     _reminderHour = habit?.reminderHour;
     _reminderMinute = habit?.reminderMinute;
     _alarmPreset = habit?.alarmPreset != null
@@ -127,7 +121,6 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
   void dispose() {
     _nameController.dispose();
     _amountController.dispose();
-    _unitController.dispose();
     _intervalController.dispose();
     _incrementController.dispose();
     super.dispose();
@@ -416,7 +409,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: DropdownButtonFormField<HabitGoalUnit?>(
+                child: DropdownButtonFormField<HabitGoalUnit>(
                   dropdownColor: palette.surface,
                   initialValue: _selectedUnit,
                   style: TextStyle(color: palette.text),
@@ -428,30 +421,18 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                   items: [
                     for (final unit in HabitGoalUnit.values)
                       DropdownMenuItem(value: unit, child: Text(unit.label)),
-                    const DropdownMenuItem(value: null, child: Text('Custom...')),
                   ],
                   onChanged: (value) {
-                    setState(() {
-                      _selectedUnit = value;
-                      _isCustomUnit = value == null;
-                    });
+                    if (value != null) {
+                      setState(() {
+                        _selectedUnit = value;
+                      });
+                    }
                   },
                 ),
               ),
             ],
           ),
-          if (_isCustomUnit) ...[
-            const SizedBox(height: 8),
-            TextField(
-              controller: _unitController,
-              style: TextStyle(color: palette.text),
-              decoration: InputDecoration(
-                labelText: 'Custom unit (e.g. laps, chapters...)',
-                labelStyle: TextStyle(color: palette.text.withValues(alpha: 0.6)),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -480,8 +461,8 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
   }
 
   String _currentUnitLabel() {
-    if (_isCustomUnit) return _unitController.text.trim();
-    return _selectedUnit?.label ?? '';
+    if (_goalType == 'binary') return 'times';
+    return _selectedUnit.label;
   }
 
   Widget _buildGoalDurationPicker(AppPalette palette) {
@@ -604,9 +585,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
     final repo = ref.read(habitRepositoryProvider);
     final frequency = _buildFrequency();
     final amount = double.tryParse(_amountController.text);
-    final unit = _isCustomUnit
-        ? _unitController.text.trim()
-        : (_selectedUnit?.label ?? '');
+    final unit = _selectedUnit.label;
     final increment = double.tryParse(_incrementController.text) ?? 1;
 
     try {
