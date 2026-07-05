@@ -68,16 +68,12 @@ class _QuadrantWidget extends ConsumerStatefulWidget {
 }
 
 class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
-  bool _isExpanded = false;
-
   @override
   Widget build(BuildContext context) {
     final tasks = ref.watch(matrixTasksProvider(widget.quadrant));
     final color = widget.quadrant.color;
 
-    return GestureDetector(
-      onTap: () => _showExpandedSheet(context, tasks, color),
-      child: Container(
+    return Container(
         decoration: BoxDecoration(
           color: widget.palette.surface.withValues(alpha: widget.palette.isAmoled ? 1.0 : 0.5),
           borderRadius: BorderRadius.circular(24),
@@ -145,8 +141,8 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
                             ),
                           )
                         : ListView.builder(
-                            itemCount: tasks.length > 3 ? 3 : tasks.length,
-                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: tasks.length,
+                            physics: const BouncingScrollPhysics(),
                             itemBuilder: (context, index) {
                               final task = tasks[index];
                               return Padding(
@@ -170,14 +166,21 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
                                       ),
                                     ),
                                     Expanded(
-                                      child: Text(
-                                        task.title,
-                                        style: TextStyle(
-                                          color: widget.palette.text,
-                                          fontSize: 13,
+                                      child: GestureDetector(
+                                        onTap: () => showTaskFormSheet(
+                                          context,
+                                          listId: task.listId,
+                                          existingTask: task,
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                        child: Text(
+                                          task.title,
+                                          style: TextStyle(
+                                            color: widget.palette.text,
+                                            fontSize: 13,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -186,116 +189,11 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
                             },
                           ),
                   ),
-                  if (tasks.length > 3)
-                    Center(
-                      child: Text(
-                        '+ ${tasks.length - 3} more',
-                        style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 12),
-                      ),
-                    ),
                 ],
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  void _showExpandedSheet(BuildContext context, List<Task> tasks, Color color) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: BoxDecoration(
-            color: widget.palette.background,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: widget.palette.text.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      widget.quadrant.label,
-                      style: TextStyle(
-                        color: widget.palette.text,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${tasks.length} tasks',
-                      style: TextStyle(
-                        color: widget.palette.text.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: tasks.isEmpty
-                    ? Center(child: Text('No tasks here', style: TextStyle(color: widget.palette.text.withValues(alpha: 0.5))))
-                    : ListView.builder(
-                        itemCount: tasks.length,
-                        itemBuilder: (context, index) {
-                          final task = tasks[index];
-                          return ListTile(
-                            leading: Checkbox(
-                              value: task.isCompleted,
-                              activeColor: color,
-                              onChanged: (checked) {
-                                final repo = ref.read(taskRepositoryProvider);
-                                if (checked == true) {
-                                  repo.completeTask(task.id);
-                                } else {
-                                  repo.uncompleteTask(task.id);
-                                }
-                              },
-                            ),
-                            title: Text(
-                              task.title,
-                              style: TextStyle(
-                                color: widget.palette.text,
-                                decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-                              ),
-                            ),
-                            onTap: () => showTaskFormSheet(
-                              context,
-                              listId: task.listId,
-                              existingTask: task,
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+      );
   }
 }
