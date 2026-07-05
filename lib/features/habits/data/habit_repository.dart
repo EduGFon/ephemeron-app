@@ -244,8 +244,9 @@ class HabitRepository {
     Map<DateTime, HabitLog> logsByDay,
   ) {
     if (day.isAfter(today)) return HabitDayStatus.future;
-    if (day.isBefore(_normalizeDay(habit.startDate)))
+    if (day.isBefore(_normalizeDay(habit.startDate))) {
       return HabitDayStatus.notDue;
+    }
     if (frequency.type != HabitFrequencyType.weekly &&
         !frequency.isDueOn(day, habitStartDate: habit.startDate)) {
       return HabitDayStatus.notDue;

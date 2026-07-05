@@ -63,8 +63,9 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
       body: listsAsync.when(
         data: (lists) {
           final current = _currentList(lists);
-          if (current == null)
+          if (current == null) {
             return const Center(child: CircularProgressIndicator());
+          }
           return _TaskListView(listId: current.id);
         },
         loading: () => const Center(child: CircularProgressIndicator()),

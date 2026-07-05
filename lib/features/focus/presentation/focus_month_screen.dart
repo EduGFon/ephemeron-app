@@ -28,12 +28,16 @@ class _FocusMonthScreenState extends ConsumerState<FocusMonthScreen> {
           children: [
             IconButton(
               icon: const Icon(Icons.chevron_left),
-              onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1, 1)),
+              onPressed: () => setState(
+                () => _month = DateTime(_month.year, _month.month - 1, 1),
+              ),
             ),
             Text('${_monthName(_month.month)} ${_month.year}'),
             IconButton(
               icon: const Icon(Icons.chevron_right),
-              onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1, 1)),
+              onPressed: () => setState(
+                () => _month = DateTime(_month.year, _month.month + 1, 1),
+              ),
             ),
           ],
         ),
@@ -45,9 +49,18 @@ class _FocusMonthScreenState extends ConsumerState<FocusMonthScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _TotalStat(label: 'This month', duration: monthTotalAsync.valueOrNull),
-                _TotalStat(label: 'This year', duration: yearTotalAsync.valueOrNull),
-                _TotalStat(label: 'All time', duration: allTimeAsync.valueOrNull),
+                _TotalStat(
+                  label: 'This month',
+                  duration: monthTotalAsync.valueOrNull,
+                ),
+                _TotalStat(
+                  label: 'This year',
+                  duration: yearTotalAsync.valueOrNull,
+                ),
+                _TotalStat(
+                  label: 'All time',
+                  duration: allTimeAsync.valueOrNull,
+                ),
               ],
             ),
           ),
@@ -55,15 +68,30 @@ class _FocusMonthScreenState extends ConsumerState<FocusMonthScreen> {
           Expanded(
             child: dailyTotalsAsync.when(
               data: (totals) {
-                final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
-                final entries = [
-                  for (var day = 1; day <= daysInMonth; day++)
-                    MapEntry(DateTime(_month.year, _month.month, day), totals[DateTime(_month.year, _month.month, day)]),
-                ].where((e) => e.value != null && e.value! > Duration.zero).toList();
+                final daysInMonth = DateTime(
+                  _month.year,
+                  _month.month + 1,
+                  0,
+                ).day;
+                final entries =
+                    [
+                          for (var day = 1; day <= daysInMonth; day++)
+                            MapEntry(
+                              DateTime(_month.year, _month.month, day),
+                              totals[DateTime(_month.year, _month.month, day)],
+                            ),
+                        ]
+                        .where(
+                          (e) => e.value != null && e.value! > Duration.zero,
+                        )
+                        .toList();
 
                 if (entries.isEmpty) {
                   return Center(
-                    child: Text('No focus sessions this month', style: theme.textTheme.bodyMedium),
+                    child: Text(
+                      'No focus sessions this month',
+                      style: theme.textTheme.bodyMedium,
+                    ),
                   );
                 }
 
@@ -72,15 +100,18 @@ class _FocusMonthScreenState extends ConsumerState<FocusMonthScreen> {
                   itemBuilder: (context, index) {
                     final entry = entries[index];
                     return ListTile(
-                      title: Text('${entry.key.year}-${entry.key.month.toString().padLeft(2, '0')}-'
-                          '${entry.key.day.toString().padLeft(2, '0')}'),
+                      title: Text(
+                        '${entry.key.year}-${entry.key.month.toString().padLeft(2, '0')}-'
+                        '${entry.key.day.toString().padLeft(2, '0')}',
+                      ),
                       trailing: Text(_format(entry.value!)),
                     );
                   },
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Could not load totals: $error')),
+              error: (error, _) =>
+                  Center(child: Text('Could not load totals: $error')),
             ),
           ),
         ],
@@ -96,8 +127,18 @@ class _FocusMonthScreenState extends ConsumerState<FocusMonthScreen> {
 
   String _monthName(int month) {
     const names = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return names[month - 1];
   }
@@ -111,12 +152,14 @@ class _TotalStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hours = duration != null ? duration!.inHours : null;
-    final minutes = duration != null ? duration!.inMinutes.remainder(60) : null;
+    final hours = duration?.inHours;
+    final minutes = duration?.inMinutes.remainder(60);
     return Column(
       children: [
         Text(
-          duration == null ? '...' : (hours! > 0 ? '${hours}h ${minutes}m' : '${minutes}m'),
+          duration == null
+              ? '...'
+              : (hours! > 0 ? '${hours}h ${minutes}m' : '${minutes}m'),
           style: Theme.of(context).textTheme.titleMedium,
         ),
         Text(label, style: Theme.of(context).textTheme.labelSmall),

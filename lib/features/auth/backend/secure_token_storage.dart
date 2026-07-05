@@ -13,9 +13,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class SecureTokenStorage {
   const SecureTokenStorage._();
 
-  static const _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  static const _storage = FlutterSecureStorage();
 
   static const _refreshTokenKey = 'backend.refreshToken';
   static const _userIdKey = 'backend.userId';
@@ -34,7 +32,7 @@ class SecureTokenStorage {
   }
 
   static Future<({String refreshToken, String userId, String email})?>
-      readSession() async {
+  readSession() async {
     final values = await Future.wait([
       _storage.read(key: _refreshTokenKey),
       _storage.read(key: _userIdKey),

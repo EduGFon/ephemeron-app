@@ -71,8 +71,9 @@ class FocusRepository {
     final habit = await (_db.select(
       _db.habits,
     )..where((h) => h.id.equals(habitId))).getSingleOrNull();
-    if (habit == null || habit.goalType != 'amount' || habit.goalUnit == null)
+    if (habit == null || habit.goalType != 'amount' || habit.goalUnit == null) {
       return;
+    }
 
     final knownUnit = HabitGoalUnit.tryParse(habit.goalUnit);
     double? contributedAmount;

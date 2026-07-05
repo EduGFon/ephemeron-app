@@ -10,11 +10,18 @@ enum HabitFrequencyType { daily, weekly, interval }
 ///  - interval: every N days counted from [startDate], regardless of
 ///    calendar week boundaries
 class HabitFrequency {
-  const HabitFrequency.daily({this.weekdays = const []}) : type = HabitFrequencyType.daily, timesPerWeek = null, intervalDays = null;
-  const HabitFrequency.weekly({required int timesPerWeek})
-      : type = HabitFrequencyType.weekly, timesPerWeek = timesPerWeek, weekdays = const [], intervalDays = null;
-  const HabitFrequency.interval({required int days})
-      : type = HabitFrequencyType.interval, intervalDays = days, weekdays = const [], timesPerWeek = null;
+  const HabitFrequency.daily({this.weekdays = const []})
+    : type = HabitFrequencyType.daily,
+      timesPerWeek = null,
+      intervalDays = null;
+  const HabitFrequency.weekly({required this.timesPerWeek})
+    : type = HabitFrequencyType.weekly,
+      weekdays = const [],
+      intervalDays = null;
+  const HabitFrequency.interval({required this.intervalDays})
+    : type = HabitFrequencyType.interval,
+      weekdays = const [],
+      timesPerWeek = null;
 
   final HabitFrequencyType type;
 
@@ -28,11 +35,11 @@ class HabitFrequency {
   final int? intervalDays;
 
   String encode() => jsonEncode({
-        'type': type.name,
-        'weekdays': weekdays,
-        'timesPerWeek': timesPerWeek,
-        'intervalDays': intervalDays,
-      });
+    'type': type.name,
+    'weekdays': weekdays,
+    'timesPerWeek': timesPerWeek,
+    'intervalDays': intervalDays,
+  });
 
   static HabitFrequency decode(String? raw) {
     if (raw == null || raw.isEmpty) return const HabitFrequency.daily();
@@ -45,9 +52,13 @@ class HabitFrequency {
             weekdays: (map['weekdays'] as List<dynamic>? ?? []).cast<int>(),
           );
         case HabitFrequencyType.weekly:
-          return HabitFrequency.weekly(timesPerWeek: map['timesPerWeek'] as int? ?? 1);
+          return HabitFrequency.weekly(
+            timesPerWeek: map['timesPerWeek'] as int? ?? 1,
+          );
         case HabitFrequencyType.interval:
-          return HabitFrequency.interval(days: map['intervalDays'] as int? ?? 1);
+          return HabitFrequency.interval(
+            intervalDays: map['intervalDays'] as int? ?? 1,
+          );
       }
     } catch (_) {
       return const HabitFrequency.daily();
@@ -66,7 +77,11 @@ class HabitFrequency {
       case HabitFrequencyType.weekly:
         return true;
       case HabitFrequencyType.interval:
-        final start = DateTime(habitStartDate.year, habitStartDate.month, habitStartDate.day);
+        final start = DateTime(
+          habitStartDate.year,
+          habitStartDate.month,
+          habitStartDate.day,
+        );
         final day = DateTime(date.year, date.month, date.day);
         if (day.isBefore(start)) return false;
         final daysSinceStart = day.difference(start).inDays;

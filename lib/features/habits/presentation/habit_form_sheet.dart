@@ -297,7 +297,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<HabitGoalUnit?>(
-                  value: _selectedUnit,
+                  initialValue: _selectedUnit,
                   decoration: const InputDecoration(labelText: 'Unit'),
                   items: [
                     for (final unit in HabitGoalUnit.values)
@@ -307,10 +307,12 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                       child: Text('Custom...'),
                     ),
                   ],
-                  onChanged: (value) => setState(() {
-                    _selectedUnit = value;
-                    _isCustomUnit = value == null;
-                  }),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedUnit = value;
+                      _isCustomUnit = value == null;
+                    });
+                  },
                 ),
               ),
             ],
@@ -445,7 +447,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
         return HabitFrequency.weekly(timesPerWeek: _timesPerWeek);
       case HabitFrequencyType.interval:
         return HabitFrequency.interval(
-          days: int.tryParse(_intervalController.text) ?? 1,
+          intervalDays: int.tryParse(_intervalController.text) ?? 1,
         );
     }
   }

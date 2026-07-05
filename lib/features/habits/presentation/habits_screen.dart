@@ -135,8 +135,9 @@ class _HabitTile extends ConsumerWidget {
     if (logs == null) return null;
     for (final log in logs) {
       if (DateTime(log.date.year, log.date.month, log.date.day) ==
-          todayNormalized)
+          todayNormalized) {
         return log;
+      }
     }
     return null;
   }

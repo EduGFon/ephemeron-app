@@ -46,7 +46,11 @@ class FocusScreen extends ConsumerWidget {
               const SizedBox(height: 8),
               Text(
                 _formatDuration(timerState.elapsed),
-                style: const TextStyle(fontFamily: 'Fraunces', fontSize: 64, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontFamily: 'Fraunces',
+                  fontSize: 64,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               if (timerState.mode == FocusMode.pomodoro)
                 Padding(
@@ -67,7 +71,7 @@ class FocusScreen extends ConsumerWidget {
               const Spacer(),
               _Controls(state: timerState, controller: controller),
               const SizedBox(height: 24),
-              _TotalsRow(),
+              const _TotalsRow(),
             ],
           ),
         ),
@@ -209,7 +213,7 @@ class _TotalsRow extends ConsumerWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.bar_chart, size: 16, color: AppColors.petrol),
+            const Icon(Icons.bar_chart, size: 16, color: AppColors.petrol),
             const SizedBox(width: 6),
             Text(
               'Today: ${_short(today.valueOrNull)}  ·  This week: ${_short(week.valueOrNull)}',

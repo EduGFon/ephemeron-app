@@ -13,7 +13,7 @@ const tableIdGenerator = Uuid();
 /// seeded on first run (see database.dart).
 ///
 /// @DataClassName is required here — without it, Drift would generate a
-/// data class literally named `List`, colliding with dart:core's List<T>
+/// data class literally named `List`, colliding with dart:core's `List<T>`
 /// and making every file that imports both a headache. Caught and fixed
 /// in Step 3, the first step that actually generates and uses this class.
 @DataClassName('TaskList')
@@ -168,8 +168,8 @@ class HabitLogs extends Table {
   // check-then-insert-or-update dance.
   @override
   List<Set<Column>> get uniqueKeys => [
-        {habitId, date},
-      ];
+    {habitId, date},
+  ];
 
   @override
   Set<Column> get primaryKey => {id};
@@ -182,8 +182,7 @@ class FocusSessions extends Table {
   TextColumn get linkedHabitId => text().nullable().references(Habits, #id)();
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime().nullable()();
-  IntColumn get durationSeconds =>
-      integer().withDefault(const Constant(0))();
+  IntColumn get durationSeconds => integer().withDefault(const Constant(0))();
   TextColumn get note => text().nullable()();
 
   @override

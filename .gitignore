@@ -19,11 +19,18 @@ pubspec.lock
 *.iml
 
 # Platform build artifacts
-ios/Pods/
-android/.gradle/
-android/local.properties
-linux/flutter/ephemeral/
-windows/flutter/ephemeral/
+# ios/Pods/
+ios/
+android/
+# android/.gradle/
+# android/local.properties
+#linux/flutter/ephemeral/
+#windows/flutter/ephemeral/
+linux
+windows
+macos
+web
+test
 
 # Local DB files created at runtime (desktop/dev)
 *.sqlite

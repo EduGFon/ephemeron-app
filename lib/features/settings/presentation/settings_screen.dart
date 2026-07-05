@@ -17,23 +17,27 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         children: [
           const _SectionHeader('Appearance'),
-          RadioListTile<ThemeModeOption>(
-            title: const Text('System'),
-            value: ThemeModeOption.system,
+          RadioGroup<ThemeModeOption>(
             groupValue: settings.themeMode,
-            onChanged: (value) => notifier.setThemeMode(value!),
-          ),
-          RadioListTile<ThemeModeOption>(
-            title: const Text('Light'),
-            value: ThemeModeOption.light,
-            groupValue: settings.themeMode,
-            onChanged: (value) => notifier.setThemeMode(value!),
-          ),
-          RadioListTile<ThemeModeOption>(
-            title: const Text('Dark'),
-            value: ThemeModeOption.dark,
-            groupValue: settings.themeMode,
-            onChanged: (value) => notifier.setThemeMode(value!),
+            onChanged: (value) {
+              if (value != null) notifier.setThemeMode(value);
+            },
+            child: const Column(
+              children: [
+                RadioListTile<ThemeModeOption>(
+                  title: Text('System'),
+                  value: ThemeModeOption.system,
+                ),
+                RadioListTile<ThemeModeOption>(
+                  title: Text('Light'),
+                  value: ThemeModeOption.light,
+                ),
+                RadioListTile<ThemeModeOption>(
+                  title: Text('Dark'),
+                  value: ThemeModeOption.dark,
+                ),
+              ],
+            ),
           ),
           const Divider(),
           const _SectionHeader('Battery & motion'),
@@ -45,7 +49,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
           SwitchListTile(
             title: const Text('Power saving mode'),
-            subtitle: const Text('Manually force the same reduced-animation behavior'),
+            subtitle: const Text(
+              'Manually force the same reduced-animation behavior',
+            ),
             value: settings.powerSavingMode,
             onChanged: notifier.setPowerSavingMode,
           ),
@@ -114,10 +120,9 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Text(
         label,
-        style: Theme.of(context)
-            .textTheme
-            .labelLarge
-            ?.copyWith(color: Theme.of(context).colorScheme.primary),
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }

@@ -325,8 +325,9 @@ class AlarmScheduler {
       minute,
     );
     if (weekday == null) {
-      if (candidate.isBefore(now))
+      if (candidate.isBefore(now)) {
         candidate = candidate.add(const Duration(days: 1));
+      }
       return candidate;
     }
     while (candidate.weekday != weekday || candidate.isBefore(now)) {
