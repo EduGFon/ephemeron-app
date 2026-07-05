@@ -36,18 +36,34 @@ class AppShell extends ConsumerWidget {
       extendBody: true, // Content flows under the transparent navigation bar
       body: navigationShell,
       floatingActionButton: showQuickAdd
-          ? FloatingActionButton(
-              onPressed: () {
-                final currentSection = pinned.firstWhere(
-                  (s) => s.branchIndex == navigationShell.currentIndex,
-                  orElse: () => overflow.firstWhere(
+          ? Container(
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: palette.primary.withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 8),
+                  )
+                ],
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: FloatingActionButton(
+                backgroundColor: palette.primary,
+                foregroundColor: palette.background,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                onPressed: () {
+                  final currentSection = pinned.firstWhere(
                     (s) => s.branchIndex == navigationShell.currentIndex,
-                  ),
-                );
-                showQuickAddSheet(context, currentSection: currentSection);
-              },
-              elevation: 4,
-              child: const Icon(Icons.add),
+                    orElse: () => overflow.firstWhere(
+                      (s) => s.branchIndex == navigationShell.currentIndex,
+                    ),
+                  );
+                  showQuickAddSheet(context, currentSection: currentSection);
+                },
+                child: const Icon(Icons.add, size: 28),
+              ),
             ).animate().scale(curve: Curves.easeOutBack, duration: 400.ms)
           : null,
       floatingActionButtonLocation: settings.usePillNavigation 
@@ -94,26 +110,58 @@ class AppShell extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (final section in overflow)
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: palette.text.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  for (int i = 0; i < overflow.length; i++)
                     ListTile(
-                      leading: Icon(section.icon, color: palette.text),
-                      title: Text(section.label, style: TextStyle(color: palette.text)),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: palette.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(overflow[i].icon, color: palette.primary, size: 20),
+                      ),
+                      title: Text(overflow[i].label, style: TextStyle(color: palette.text, fontWeight: FontWeight.w500)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                       onTap: () {
                         Navigator.of(sheetContext).pop();
-                        navigationShell.goBranch(section.branchIndex);
+                        navigationShell.goBranch(overflow[i].branchIndex);
                       },
-                    ),
-                  Divider(height: 1, color: palette.text.withValues(alpha: 0.1)),
+                    ).animate().fadeIn(delay: (i * 50).ms).slideX(begin: -0.1),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Divider(height: 1, color: palette.text.withValues(alpha: 0.1)),
+                  ),
                   ListTile(
-                    leading: Icon(Icons.settings_outlined, color: palette.text),
-                    title: Text('Settings', style: TextStyle(color: palette.text)),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: palette.text.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.settings_outlined, color: palette.text.withValues(alpha: 0.7), size: 20),
+                    ),
+                    title: Text('Settings', style: TextStyle(color: palette.text, fontWeight: FontWeight.w500)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                     onTap: () {
                       Navigator.of(sheetContext).pop();
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const SettingsScreen()),
                       );
                     },
-                  ),
+                  ).animate().fadeIn(delay: (overflow.length * 50).ms).slideX(begin: -0.1),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
