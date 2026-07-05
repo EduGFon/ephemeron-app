@@ -1,120 +1,78 @@
 import 'package:flutter/material.dart';
-import 'app_colors.dart';
+import 'theme_palettes.dart';
 
-/// Builds the app's [ThemeData] for light and dark modes.
-///
-/// Type pairing is deliberate, not a Material default: Fraunces (warm,
-/// slightly organic serif) carries section headers, dates, and countdown
-/// numbers — the moments that should feel human. Inter carries the dense,
-/// daily-use UI (lists, task rows) where legibility matters more than
-/// character.
 class AppTheme {
   const AppTheme._();
 
-  static ThemeData light({required bool reducedMotion}) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.petrol,
-      brightness: Brightness.light,
-      primary: AppColors.petrol,
-      secondary: AppColors.amber,
-      surface: AppColors.surfaceLight,
-      error: AppColors.errorLight,
+  static ThemeData build(AppPalette palette, {required bool reducedMotion}) {
+    final colorScheme = ColorScheme(
+      brightness: palette.background.computeLuminance() > 0.5 ? Brightness.light : Brightness.dark,
+      primary: palette.primary,
+      onPrimary: _onColor(palette.primary),
+      secondary: palette.secondary,
+      onSecondary: _onColor(palette.secondary),
+      error: const Color(0xFFE0876D),
+      onError: Colors.white,
+      surface: palette.surface,
+      onSurface: palette.text,
     );
-    return _build(colorScheme, reducedMotion: reducedMotion);
-  }
 
-  static ThemeData dark({required bool reducedMotion}) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.petrolDim,
-      brightness: Brightness.dark,
-      primary: AppColors.amberDim,
-      secondary: AppColors.petrolDim,
-      surface: AppColors.surfaceDark,
-      error: AppColors.errorDark,
-    );
-    return _build(colorScheme, reducedMotion: reducedMotion);
-  }
-
-  static ThemeData _build(
-    ColorScheme colorScheme, {
-    required bool reducedMotion,
-  }) {
-    final textTheme = _textTheme(colorScheme.onSurface);
+    final textTheme = _textTheme(palette.text);
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: colorScheme.surface,
+      scaffoldBackgroundColor: Colors.transparent, // Background handled by mesh/solid layers
       textTheme: textTheme,
-      // Power-saving mode / user preference collapses page transitions to
-      // an instant fade instead of the full slide+fade — this is the hook
-      // the rest of the app's animations should check against too.
       pageTransitionsTheme: PageTransitionsTheme(
         builders: {
           for (final platform in TargetPlatform.values)
             platform: reducedMotion
                 ? const FadeUpwardsPageTransitionsBuilder()
-                : const _EphemeronPageTransitionsBuilder(),
+                : const _PremiumPageTransitionsBuilder(),
         },
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: colorScheme.surface,
-        indicatorColor: colorScheme.secondary.withValues(alpha: 0.25),
-        labelTextStyle: WidgetStateProperty.all(
-          textTheme.labelSmall,
-        ),
+        backgroundColor: Colors.transparent, // Let glass effect show through
+        indicatorColor: palette.secondary.withValues(alpha: 0.25),
+        labelTextStyle: WidgetStateProperty.all(textTheme.labelSmall),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
+        backgroundColor: Colors.transparent,
+        foregroundColor: palette.text,
         elevation: 0,
         titleTextStyle: textTheme.titleLarge,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: colorScheme.secondary,
-        foregroundColor: colorScheme.onSecondary,
+        backgroundColor: palette.primary,
+        foregroundColor: _onColor(palette.primary),
+      ),
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
     );
+  }
+
+  static Color _onColor(Color color) {
+    return color.computeLuminance() > 0.5 ? Colors.black : Colors.white;
   }
 
   static TextTheme _textTheme(Color onSurface) {
     const display = 'Fraunces';
     const body = 'Inter';
     return TextTheme(
-      displayLarge: TextStyle(
-        fontFamily: display,
-        fontWeight: FontWeight.w600,
-        fontSize: 40,
-        color: onSurface,
-      ),
-      headlineMedium: TextStyle(
-        fontFamily: display,
-        fontWeight: FontWeight.w600,
-        fontSize: 26,
-        color: onSurface,
-      ),
-      titleLarge: TextStyle(
-        fontFamily: display,
-        fontWeight: FontWeight.w600,
-        fontSize: 20,
-        color: onSurface,
-      ),
+      displayLarge: TextStyle(fontFamily: display, fontWeight: FontWeight.w600, fontSize: 40, color: onSurface),
+      headlineMedium: TextStyle(fontFamily: display, fontWeight: FontWeight.w600, fontSize: 26, color: onSurface),
+      titleLarge: TextStyle(fontFamily: display, fontWeight: FontWeight.w600, fontSize: 20, color: onSurface),
       bodyLarge: TextStyle(fontFamily: body, fontSize: 16, color: onSurface),
       bodyMedium: TextStyle(fontFamily: body, fontSize: 14, color: onSurface),
-      labelSmall: TextStyle(
-        fontFamily: body,
-        fontWeight: FontWeight.w500,
-        fontSize: 12,
-        color: onSurface,
-      ),
+      labelSmall: TextStyle(fontFamily: body, fontWeight: FontWeight.w500, fontSize: 12, color: onSurface),
     );
   }
 }
 
-/// A restrained custom transition (subtle fade + slight rise) used only
-/// when the user has not requested reduced motion.
-class _EphemeronPageTransitionsBuilder extends PageTransitionsBuilder {
-  const _EphemeronPageTransitionsBuilder();
+class _PremiumPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _PremiumPageTransitionsBuilder();
 
   @override
   Widget buildTransitions<T>(
@@ -128,10 +86,7 @@ class _EphemeronPageTransitionsBuilder extends PageTransitionsBuilder {
     return FadeTransition(
       opacity: curved,
       child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.02),
-          end: Offset.zero,
-        ).animate(curved),
+        position: Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(curved),
         child: child,
       ),
     );

@@ -1,5 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../data/local/database.dart';
 import '../../calendar/application/calendar_providers.dart';
@@ -111,18 +113,24 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       constraints: const BoxConstraints(maxWidth: 500),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: theme.colorScheme.surface.withValues(alpha: 0.75),
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.1), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -217,7 +225,10 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+  ),
+).animate().scale(curve: Curves.easeOutBack, duration: 400.ms).fadeIn(duration: 400.ms);
   }
 
   String _formatDate(DateTime d, bool hasTime) {

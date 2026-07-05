@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/settings/app_settings_provider.dart';
+import '../../../core/theme/theme_engine_provider.dart';
+import '../../../core/theme/theme_palettes.dart';
 import '../../../presentation/shell/pinned_sections_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -17,31 +19,41 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
-          const _SectionHeader('Appearance'),
-          RadioGroup<ThemeModeOption>(
-            groupValue: settings.themeMode,
-            onChanged: (value) {
-              if (value != null) notifier.setThemeMode(value);
+          const _SectionHeader('Appearance (Premium Palettes)'),
+          Consumer(
+            builder: (context, ref, child) {
+              final currentPalette = ref.watch(themeEngineProvider);
+              return Column(
+                children: AppPalette.values.map((palette) {
+                  return RadioListTile<AppPaletteType>(
+                    title: Text(palette.name),
+                    value: palette.type,
+                    groupValue: currentPalette.type,
+                    onChanged: (value) {
+                      if (value != null) ref.read(themeEngineProvider.notifier).setPalette(value);
+                    },
+                    secondary: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: palette.background,
+                        border: Border.all(color: palette.primary, width: 2),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
             },
-            child: const Column(
-              children: [
-                RadioListTile<ThemeModeOption>(
-                  title: Text('System'),
-                  value: ThemeModeOption.system,
-                ),
-                RadioListTile<ThemeModeOption>(
-                  title: Text('Light'),
-                  value: ThemeModeOption.light,
-                ),
-                RadioListTile<ThemeModeOption>(
-                  title: Text('Dark'),
-                  value: ThemeModeOption.dark,
-                ),
-              ],
-            ),
           ),
           const Divider(),
           const _SectionHeader('Navigation Bar'),
+          SwitchListTile(
+            title: const Text('Floating Pill Layout'),
+            subtitle: const Text('Use a floating glass navigation bar instead of edge-to-edge'),
+            value: settings.usePillNavigation,
+            onChanged: notifier.setUsePillNavigation,
+          ),
           ListTile(
             title: const Text('Customize Navigation Bar'),
             subtitle: const Text('Reorder tabs and overflow items'),

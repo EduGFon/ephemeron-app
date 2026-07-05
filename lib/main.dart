@@ -6,9 +6,11 @@ import 'core/settings/app_settings_provider.dart';
 import 'core/settings/power_saving_manager.dart';
 import 'core/settings/shared_preferences_provider.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_engine_provider.dart';
+import 'core/theme/premium_background.dart';
 import 'features/alarms/application/alarm_action_manager_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'features/alarms/application/alarm_scheduler_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'features/countdown/application/countdown_providers.dart';
 import 'features/habits/application/habit_providers.dart';
 
@@ -42,19 +44,26 @@ class EphemeronApp extends ConsumerWidget {
     // Listens to app lifecycle changes to refresh battery state
     ref.watch(powerSavingManagerProvider);
 
-    final themeMode = switch (settings.themeMode) {
-      ThemeModeOption.system => ThemeMode.system,
-      ThemeModeOption.light => ThemeMode.light,
-      ThemeModeOption.dark => ThemeMode.dark,
-    };
+    final palette = ref.watch(themeEngineProvider);
+    final isReducedMotion = settings.shouldReduceMotion;
 
     return MaterialApp.router(
       title: 'Ephemeron',
       debugShowCheckedModeBanner: false,
-      themeMode: themeMode,
-      theme: AppTheme.light(reducedMotion: settings.shouldReduceMotion),
-      darkTheme: AppTheme.dark(reducedMotion: settings.shouldReduceMotion),
+      themeMode: ThemeMode.light, // We control the palette directly now
+      theme: AppTheme.build(palette, reducedMotion: isReducedMotion),
       routerConfig: router,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            // Premium background layer
+            Positioned.fill(
+              child: PremiumBackground(palette: palette, isReducedMotion: isReducedMotion),
+            ),
+            if (child != null) child,
+          ],
+        );
+      },
     );
   }
 }

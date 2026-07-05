@@ -12,7 +12,7 @@ class AppSettings {
     this.reducedMotion = false,
     this.powerSavingMode = false,
     this.osBatterySaverActive = false,
-    this.themeMode = ThemeModeOption.system,
+    this.usePillNavigation = true,
   });
 
   final bool reducedMotion;
@@ -26,7 +26,7 @@ class AppSettings {
   /// app ran.
   final bool osBatterySaverActive;
 
-  final ThemeModeOption themeMode;
+  final bool usePillNavigation;
 
   /// Effective "should we skip decorative animation" flag: the user's
   /// explicit toggle, their manual power-saving override, OR the OS
@@ -38,23 +38,21 @@ class AppSettings {
     bool? reducedMotion,
     bool? powerSavingMode,
     bool? osBatterySaverActive,
-    ThemeModeOption? themeMode,
+    bool? usePillNavigation,
   }) {
     return AppSettings(
       reducedMotion: reducedMotion ?? this.reducedMotion,
       powerSavingMode: powerSavingMode ?? this.powerSavingMode,
       osBatterySaverActive: osBatterySaverActive ?? this.osBatterySaverActive,
-      themeMode: themeMode ?? this.themeMode,
+      usePillNavigation: usePillNavigation ?? this.usePillNavigation,
     );
   }
 }
 
-enum ThemeModeOption { system, light, dark }
-
 class AppSettingsNotifier extends Notifier<AppSettings> {
   static const _reducedMotionKey = 'settings.reducedMotion';
   static const _powerSavingKey = 'settings.powerSavingMode';
-  static const _themeModeKey = 'settings.themeMode';
+  static const _usePillNavigationKey = 'settings.usePillNavigation';
   final _battery = Battery();
 
   @override
@@ -71,7 +69,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(
       reducedMotion: prefs.getBool(_reducedMotionKey) ?? false,
       powerSavingMode: prefs.getBool(_powerSavingKey) ?? false,
-      themeMode: ThemeModeOption.values[prefs.getInt(_themeModeKey) ?? 0],
+      usePillNavigation: prefs.getBool(_usePillNavigationKey) ?? true,
     );
   }
 
@@ -102,10 +100,10 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await prefs.setBool(_powerSavingKey, value);
   }
 
-  Future<void> setThemeMode(ThemeModeOption value) async {
-    state = state.copyWith(themeMode: value);
+  Future<void> setUsePillNavigation(bool value) async {
+    state = state.copyWith(usePillNavigation: value);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_themeModeKey, value.index);
+    await prefs.setBool(_usePillNavigationKey, value);
   }
 }
 
