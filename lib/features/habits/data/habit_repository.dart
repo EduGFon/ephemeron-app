@@ -195,7 +195,10 @@ class HabitRepository {
         await (_db.select(_db.habitLogs)
               ..where((l) => l.habitId.equals(habitId) & l.date.equals(targetDate)))
             .getSingleOrNull();
-    final newAmount = (existing?.amount ?? 0) + habit.logIncrement;
+    var newAmount = (existing?.amount ?? 0) + habit.logIncrement;
+    if (habit.goalAmount != null && newAmount > habit.goalAmount!) {
+      newAmount = habit.goalAmount!;
+    }
     await logProgress(
       habitId,
       date: targetDate,

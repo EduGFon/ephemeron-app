@@ -8,6 +8,7 @@ import '../../calendar/presentation/event_form_sheet.dart';
 import '../../habits/presentation/habit_form_sheet.dart';
 import '../../countdown/presentation/countdown_form_sheet.dart';
 import '../../countdown/domain/countdown_type.dart';
+import '../../tasks/application/task_providers.dart';
 import '../../../presentation/shell/nav_section.dart';
 import 'quick_add_target.dart';
 
@@ -72,6 +73,11 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
   @override
   Widget build(BuildContext context) {
     final palette = ref.watch(themeEngineProvider);
+    final listsAsync = ref.watch(listsProvider);
+    final defaultListId = listsAsync.value?.firstWhere(
+      (l) => l.isInbox, 
+      orElse: () => listsAsync.value!.first
+    ).id ?? '';
 
     final header = Padding(
       padding: const EdgeInsets.only(bottom: 24),
@@ -109,7 +115,7 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
       child: switch (_target) {
-        QuickAddTarget.task => TaskFormSheet(listId: 'default', unifiedHeader: header),
+        QuickAddTarget.task => TaskFormSheet(listId: defaultListId, unifiedHeader: header),
         QuickAddTarget.event => EventFormSheet(unifiedHeader: header),
         QuickAddTarget.habit => HabitFormSheet(unifiedHeader: header),
         QuickAddTarget.countdown => CountdownFormSheet(type: CountdownType.custom, unifiedHeader: header),
