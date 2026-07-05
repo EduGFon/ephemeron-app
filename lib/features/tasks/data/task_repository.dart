@@ -93,7 +93,20 @@ class TaskRepository {
           ..orderBy([
             (t) => OrderingTerm.desc(t.isPinned),
             (t) => OrderingTerm.asc(t.dueDate),
+            (t) => OrderingTerm.asc(t.createdAt),
           ]))
+        .watch();
+  }
+
+  Stream<List<Task>> watchAllPendingTasks() {
+    return (_db.select(_db.tasks)
+          ..where(
+            (t) =>
+                t.isDeleted.equals(false) &
+                t.isCompleted.equals(false) &
+                t.isWontDo.equals(false) &
+                t.parentTaskId.isNull(),
+          ))
         .watch();
   }
 

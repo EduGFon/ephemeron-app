@@ -5,7 +5,7 @@ import '../../features/auth/presentation/auth_screen.dart';
 import '../../presentation/shell/app_shell.dart';
 import '../../features/calendar/presentation/calendar_screen.dart';
 import '../../features/tasks/presentation/tasks_screen.dart';
-import '../../presentation/matrix/matrix_screen.dart';
+import '../../features/matrix/presentation/matrix_screen.dart';
 import '../../features/habits/presentation/habits_screen.dart';
 import '../../features/countdown/presentation/countdown_screen.dart';
 import '../../features/focus/presentation/focus_screen.dart';

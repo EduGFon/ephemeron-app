@@ -36,6 +36,10 @@ final tasksInListProvider = StreamProvider.family<List<Task>, String>((
   return ref.watch(taskRepositoryProvider).watchTasksInList(listId);
 });
 
+final allPendingTasksProvider = StreamProvider<List<Task>>((ref) {
+  return ref.watch(taskRepositoryProvider).watchAllPendingTasks();
+});
+
 final subtasksProvider = StreamProvider.family<List<Task>, String>((
   ref,
   parentTaskId,
