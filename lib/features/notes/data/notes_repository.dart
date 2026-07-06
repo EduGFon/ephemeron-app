@@ -44,4 +44,10 @@ class NotesRepository {
     await (_db.update(_db.notes)..where((n) => n.folderId.equals(id)))
         .write(const NotesCompanion(folderId: Value(null)));
   }
+
+  /// Move [noteId] into [targetFolderId] (null = root).
+  Future<void> moveNoteToFolder(String noteId, String? targetFolderId) async {
+    await (_db.update(_db.notes)..where((n) => n.id.equals(noteId)))
+        .write(NotesCompanion(folderId: Value(targetFolderId), updatedAt: Value(DateTime.now())));
+  }
 }

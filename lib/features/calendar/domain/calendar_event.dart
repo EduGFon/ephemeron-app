@@ -1,9 +1,6 @@
 import 'package:googleapis/calendar/v3.dart' as gcal;
 
-/// The 11 fixed colors Google Calendar events can use — this is the
-/// entire "coloring" system the Calendar API itself offers (see the
-/// Step 4 README section on why richer tagging needs a local layer on
-/// top of this rather than replacing it).
+/// The 11 fixed colors Google Calendar events can use.
 class GoogleEventColor {
   const GoogleEventColor(this.id, this.label, this.hex);
 
@@ -26,9 +23,47 @@ class GoogleEventColor {
   ];
 }
 
-/// App-level view of a calendar event — deliberately not exposing the
-/// full [gcal.Event] shape everywhere, so the UI layer isn't coupled to
-/// googleapis's (fairly heavy) generated types.
+/// RSVP response status — mirrors Google Calendar's attendee responseStatus
+/// plus a virtual flag (local-only, Google has no concept of "virtual yes").
+enum RsvpStatus {
+  needsAction,
+  accepted,
+  acceptedVirtually, // local-only extension
+  tentative,
+  declined;
+
+  /// Human-readable label shown in the RSVP button row.
+  String get label {
+    switch (this) {
+      case RsvpStatus.needsAction: return 'Respond';
+      case RsvpStatus.accepted: return 'Yes';
+      case RsvpStatus.acceptedVirtually: return 'Yes, virtually';
+      case RsvpStatus.tentative: return 'Maybe';
+      case RsvpStatus.declined: return 'No';
+    }
+  }
+
+  /// Maps to Google's responseStatus string (virtual maps to accepted on Google).
+  String get googleStatus {
+    switch (this) {
+      case RsvpStatus.needsAction: return 'needsAction';
+      case RsvpStatus.accepted: return 'accepted';
+      case RsvpStatus.acceptedVirtually: return 'accepted'; // virtual = accepted to Google
+      case RsvpStatus.tentative: return 'tentative';
+      case RsvpStatus.declined: return 'declined';
+    }
+  }
+
+  static RsvpStatus fromGoogle(String? status) {
+    switch (status) {
+      case 'accepted': return RsvpStatus.accepted;
+      case 'tentative': return RsvpStatus.tentative;
+      case 'declined': return RsvpStatus.declined;
+      default: return RsvpStatus.needsAction;
+    }
+  }
+}
+
 class CalendarEvent {
   const CalendarEvent({
     required this.id,
@@ -43,6 +78,14 @@ class CalendarEvent {
     this.reminderMinutes = const [],
     this.tags = const [],
     this.isDeleted = false,
+    // Attendees — list of email addresses
+    this.attendees = const [],
+    // Video conference — true when a Google Meet link is attached
+    this.hasVideoConference = false,
+    this.videoConferenceLink,
+    // RSVP — the authenticated user's own response
+    this.selfResponseStatus = RsvpStatus.needsAction,
+    this.isSelfVirtual = false,
   });
 
   final String id;
@@ -54,15 +97,18 @@ class CalendarEvent {
   final DateTime end;
   final bool isAllDay;
   final String? colorId;
-
-  /// Minutes-before-start for each reminder Google has stored for this
-  /// event (from `reminders.overrides`) — this is the "when" source of
-  /// truth for the local alarms Step 4 schedules; see CalendarRepository
-  /// for why there's no local "preset" field per event yet.
   final List<int> reminderMinutes;
-  
   final List<String> tags;
   final bool isDeleted;
+
+  // Attendees & conferencing
+  final List<String> attendees;
+  final bool hasVideoConference;
+  final String? videoConferenceLink;
+
+  // RSVP
+  final RsvpStatus selfResponseStatus;
+  final bool isSelfVirtual;
 
   static CalendarEvent fromGoogle(gcal.Event event, {String calendarId = 'primary'}) {
     final startDateTime = event.start?.dateTime;
@@ -70,6 +116,21 @@ class CalendarEvent {
     final endDateTime = event.end?.dateTime;
     final endDate = event.end?.date;
     final isAllDay = startDateTime == null && startDate != null;
+
+    // Extract attendees (email list, excluding self for display)
+    final attendees = event.attendees
+            ?.where((a) => a.email != null && a.self != true)
+            .map((a) => a.email!)
+            .toList() ??
+        const [];
+
+    // Self attendee for RSVP status
+    final selfAttendee = event.attendees?.where((a) => a.self == true).firstOrNull;
+    final selfStatus = RsvpStatus.fromGoogle(selfAttendee?.responseStatus);
+
+    // Conference data (Google Meet)
+    final hangoutLink = event.hangoutLink;
+    final hasVideo = hangoutLink != null && hangoutLink.isNotEmpty;
 
     return CalendarEvent(
       id: event.id ?? '',
@@ -86,8 +147,12 @@ class CalendarEvent {
               .whereType<int>()
               .toList() ??
           const [],
-      tags: const [], // Will be hydrated by local DB in Phase 4
+      tags: const [],
       isDeleted: false,
+      attendees: attendees,
+      hasVideoConference: hasVideo,
+      videoConferenceLink: hangoutLink,
+      selfResponseStatus: selfStatus,
     );
   }
 
@@ -112,6 +177,11 @@ class CalendarEvent {
                   gcal.EventReminder(method: 'popup', minutes: minutes),
               ],
             ),
+      attendees: attendees.isEmpty
+          ? null
+          : attendees
+              .map((email) => gcal.EventAttendee(email: email))
+              .toList(),
     );
   }
 }

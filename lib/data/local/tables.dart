@@ -35,6 +35,10 @@ class Tags extends Table {
   TextColumn get id => text().clientDefault(() => tableIdGenerator.v4())();
   TextColumn get name => text()();
   TextColumn get colorHex => text().withDefault(const Constant('#D89B3C'))();
+  // Default configs — auto-applied when this tag is selected in the event form
+  TextColumn get defaultAlarmPreset => text().nullable()();  // 'light'|'medium'|'strong'|'constant'
+  TextColumn get defaultColorHex => text().nullable()();     // e.g. '#7986CB'
+  TextColumn get defaultNoteFolderId => text().nullable()(); // NoteFolder.id
 
   @override
   Set<Column> get primaryKey => {id};

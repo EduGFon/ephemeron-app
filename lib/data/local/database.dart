@@ -26,7 +26,7 @@ class AppDatabase extends _$AppDatabase {
   /// changes in a later build step (e.g. when Habits gets typed frequency
   /// columns instead of the opaque JSON blob in the skeleton).
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -82,6 +82,12 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 8) {
             await m.addColumn(notes, notes.eventId);
+          }
+          if (from < 9) {
+            // Tag default config columns for auto-apply when tag is selected.
+            await m.addColumn(tags, tags.defaultAlarmPreset);
+            await m.addColumn(tags, tags.defaultColorHex);
+            await m.addColumn(tags, tags.defaultNoteFolderId);
           }
         },
       );

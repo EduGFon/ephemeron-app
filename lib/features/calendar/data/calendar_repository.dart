@@ -132,9 +132,20 @@ class CalendarRepository {
     return events;
   }
 
-  Future<CalendarEvent> createEvent(CalendarEvent event, {AlarmPreset? preset}) async {
+  Future<CalendarEvent> createEvent(
+    CalendarEvent event, {
+    AlarmPreset? preset,
+    bool sendInvites = false,
+    bool addVideoConference = false,
+  }) async {
     final api = await _api();
-    final created = await api.events.insert(event.toGoogle(), event.calendarId);
+    final body = event.toGoogle();
+    final created = await api.events.insert(
+      body,
+      event.calendarId,
+      conferenceDataVersion: addVideoConference ? 1 : null,
+      sendUpdates: sendInvites ? 'all' : 'none',
+    );
     final result = CalendarEvent.fromGoogle(created, calendarId: event.calendarId);
     if (preset != null) {
       await sharedPrefs.setString('event_alarm_preset_${result.id}', preset.name);
@@ -143,7 +154,12 @@ class CalendarRepository {
     return result;
   }
 
-  Future<CalendarEvent> updateEvent(CalendarEvent event, {AlarmPreset? preset}) async {
+  Future<CalendarEvent> updateEvent(
+    CalendarEvent event, {
+    AlarmPreset? preset,
+    bool sendInvites = false,
+    bool addVideoConference = false,
+  }) async {
     final api = await _api();
     if (preset != null) {
       await sharedPrefs.setString('event_alarm_preset_${event.id}', preset.name);
@@ -152,10 +168,47 @@ class CalendarRepository {
       event.toGoogle(),
       event.calendarId,
       event.id,
+      conferenceDataVersion: addVideoConference ? 1 : null,
+      sendUpdates: sendInvites ? 'all' : 'none',
     );
     final result = CalendarEvent.fromGoogle(updated, calendarId: event.calendarId);
     await _scheduleEventAlarms([result]);
     return result;
+  }
+
+  /// Update the authenticated user's own RSVP response for an event.
+  Future<void> respondToEvent(
+    CalendarEvent event,
+    RsvpStatus status, {
+    bool sendInvites = false,
+  }) async {
+    final api = await _api();
+    // We need to patch the self-attendee's responseStatus.
+    // The safest way is to fetch the full event, mutate the self attendee, and patch.
+    final gcalEvent = await api.events.get(event.calendarId, event.id);
+    final attendees = gcalEvent.attendees ?? [];
+    bool foundSelf = false;
+    for (final a in attendees) {
+      if (a.self == true) {
+        a.responseStatus = status.googleStatus;
+        foundSelf = true;
+        break;
+      }
+    }
+    if (!foundSelf) {
+      // If the user is not in the attendee list, add them
+      attendees.add(gcal.EventAttendee(
+        responseStatus: status.googleStatus,
+        self: true,
+      ));
+    }
+    gcalEvent.attendees = attendees;
+    await api.events.patch(
+      gcalEvent,
+      event.calendarId,
+      event.id,
+      sendUpdates: sendInvites ? 'all' : 'none',
+    );
   }
 
   Future<void> deleteEvent(String eventId, {String calendarId = 'primary'}) async {
