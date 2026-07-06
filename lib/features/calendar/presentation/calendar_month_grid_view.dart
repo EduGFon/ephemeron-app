@@ -139,7 +139,10 @@ class CalendarMonthGridView extends ConsumerWidget {
       onTap: () {
         ref.read(selectedDayProvider.notifier).setDay(DateTime(day.year, day.month, day.day));
       },
-      onDoubleTap: () => showEventFormSheet(context, initialDay: day),
+      onDoubleTap: () {
+        ref.read(selectedDayProvider.notifier).setDay(DateTime(day.year, day.month, day.day));
+        ref.read(calendarViewProvider.notifier).setView(CalendarView.dailyTimeline);
+      },
       child: Container(
         height: height,
         decoration: BoxDecoration(

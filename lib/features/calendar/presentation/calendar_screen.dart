@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -41,7 +42,15 @@ class CalendarScreen extends ConsumerWidget {
     final monthEventsAsync = ref.watch(monthEventsProvider(focusedMonth));
     final calendarView = ref.watch(calendarViewProvider);
 
-    return Scaffold(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          ref.read(calendarViewProvider.notifier).setView(CalendarView.monthGrid);
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Calendar', style: TextStyle(color: palette.text, fontWeight: FontWeight.bold)),
@@ -276,6 +285,8 @@ class CalendarScreen extends ConsumerWidget {
                 ),
               ],
             ),
+        ),
+      ),
     );
   }
 

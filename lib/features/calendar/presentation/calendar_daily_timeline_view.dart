@@ -36,6 +36,9 @@ class CalendarDailyTimelineView extends ConsumerWidget {
       return eventDay == targetDay;
     }).toList();
 
+    final allDayEvents = dayEvents.where((e) => e.isAllDay).toList();
+    final timedEvents = dayEvents.where((e) => !e.isAllDay).toList();
+
     final gmtOffset = _getGmtOffsetString(selectedDay);
     final weekdayName = _getWeekdayName(selectedDay.weekday);
 
@@ -117,6 +120,59 @@ class CalendarDailyTimelineView extends ConsumerWidget {
             ],
           ),
         ),
+        // Reserved space for All-day events
+        if (allDayEvents.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ALL-DAY EVENTS',
+                  style: TextStyle(
+                    color: palette.text.withValues(alpha: 0.4),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    for (final event in allDayEvents)
+                      GestureDetector(
+                        onTap: () => showEventFormSheet(
+                          context,
+                          initialDay: event.start,
+                          existingEvent: event,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _getEventColor(event.colorId, palette).withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            event.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Divider(color: palette.text.withValues(alpha: 0.08), height: 1),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ],
         // Scrollable Timeline grid
         Expanded(
           child: SingleChildScrollView(
@@ -166,7 +222,7 @@ class CalendarDailyTimelineView extends ConsumerWidget {
                       final width = constraints.maxWidth;
                       return Stack(
                         children: [
-                          for (final event in dayEvents)
+                          for (final event in timedEvents)
                             _buildTimelineEventCard(context, ref, event, width, palette),
                         ],
                       );
