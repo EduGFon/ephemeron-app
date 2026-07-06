@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../core/theme/theme_engine_provider.dart';
 import '../../core/theme/theme_palettes.dart';
@@ -24,13 +26,30 @@ class NoteFormSheet extends ConsumerStatefulWidget {
 class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
   late final _titleController = TextEditingController(text: widget.existingNote?.title);
   late final _contentController = TextEditingController(text: widget.existingNote?.content);
+  final FocusNode _contentFocusNode = FocusNode();
+  Timer? _contentTypingTimer;
   bool _isSaving = false;
   bool _isFullScreen = false;
+  bool _contentPreviewMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _contentFocusNode.addListener(() {
+      if (mounted) {
+        setState(() {
+          _contentPreviewMode = !_contentFocusNode.hasFocus;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _contentFocusNode.dispose();
+    _contentTypingTimer?.cancel();
     super.dispose();
   }
 
@@ -39,41 +58,45 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
     final palette = ref.watch(themeEngineProvider);
     final existingNote = widget.existingNote;
 
-    // Replace "edit note" header by the note/event title
-    String headerText = 'New Note';
-    if (existingNote != null) {
-      if (existingNote.title.isNotEmpty) {
-        headerText = existingNote.title;
-      } else {
-        headerText = 'Untitled Note';
-      }
-    }
-
     final dialogContent = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         if (widget.unifiedHeader != null) widget.unifiedHeader!,
+        
+        // ── Editable Header Title + Options ──
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Text(
-                headerText,
+              child: TextField(
+                controller: _titleController,
                 style: TextStyle(
                   fontFamily: 'Fraunces',
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: palette.text,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                decoration: InputDecoration(
+                  hintText: 'Note Title',
+                  hintStyle: TextStyle(
+                    fontFamily: 'Fraunces',
+                    color: palette.text.withValues(alpha: 0.3),
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.text.withValues(alpha: 0.15))),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.primary, width: 2)),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                ),
+                textCapitalization: TextCapitalization.sentences,
               ),
             ),
+            const SizedBox(width: 8),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Full Screen button
                 IconButton(
                   icon: Icon(
                     _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
@@ -85,6 +108,29 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                       _isFullScreen = !_isFullScreen;
                     });
                   },
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _contentPreviewMode = !_contentPreviewMode;
+                      if (!_contentPreviewMode) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _contentFocusNode.requestFocus();
+                        });
+                      } else {
+                        _contentFocusNode.unfocus();
+                      }
+                    });
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    _contentPreviewMode ? 'Edit' : 'Preview',
+                    style: TextStyle(color: palette.primary, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 if (existingNote != null)
                   IconButton(
@@ -113,8 +159,9 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                         ),
                       );
                       if (confirmed == true && mounted) {
+                        final navigator = Navigator.of(context);
                         await ref.read(notesRepositoryProvider).deleteNote(existingNote.id);
-                        if (mounted) Navigator.pop(context);
+                        navigator.pop();
                       }
                     },
                   ),
@@ -123,30 +170,60 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
           ],
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: _titleController,
-          onChanged: (_) => setState(() {}),
-          style: TextStyle(color: palette.text, fontWeight: FontWeight.bold, fontSize: 18),
-          decoration: InputDecoration(
-            hintText: 'Title',
-            hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.4)),
-            border: InputBorder.none,
-          ),
-        ),
-        const Divider(),
+        
+        // ── Note Body Area ──
         Expanded(
-          child: TextField(
-            controller: _contentController,
-            maxLines: null,
-            expands: true,
-            style: TextStyle(color: palette.text),
-            decoration: InputDecoration(
-              hintText: 'Type your note here...',
-              hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.4)),
-              border: InputBorder.none,
-            ),
-          ),
+          child: _contentPreviewMode
+              ? SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() => _contentPreviewMode = false);
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _contentFocusNode.requestFocus();
+                      });
+                    },
+                    child: _contentController.text.trim().isEmpty
+                        ? Text(
+                            'Type your note here. Click to edit.',
+                            style: TextStyle(
+                              color: palette.text.withValues(alpha: 0.3),
+                              fontStyle: FontStyle.italic,
+                              fontSize: 14,
+                            ),
+                          )
+                        : MarkdownBody(
+                            data: _contentController.text,
+                            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                              p: TextStyle(color: palette.text, fontSize: 14),
+                            ),
+                          ),
+                  ),
+                )
+              : TextField(
+                  controller: _contentController,
+                  focusNode: _contentFocusNode,
+                  maxLines: null,
+                  expands: true,
+                  style: TextStyle(color: palette.text),
+                  onChanged: (text) {
+                    _contentTypingTimer?.cancel();
+                    _contentTypingTimer = Timer(const Duration(seconds: 1), () {
+                      if (mounted && _contentFocusNode.hasFocus) {
+                        _contentFocusNode.unfocus();
+                        setState(() => _contentPreviewMode = true);
+                      }
+                    });
+                    setState(() {});
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Type your note here...',
+                    hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.4)),
+                    border: InputBorder.none,
+                  ),
+                ),
         ),
+        
         // Event link shortcut
         if (existingNote?.eventId != null)
           Padding(
@@ -160,54 +237,68 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
             ),
           ),
         const SizedBox(height: 8),
+        
+        // ── Info caption & actions ──
+        const Divider(height: 1, thickness: 0.5),
+        const SizedBox(height: 8),
         Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel', style: TextStyle(color: palette.text.withValues(alpha: 0.6))),
+            Text(
+              '✨ Supports Markdown formatting.',
+              style: TextStyle(color: palette.text.withValues(alpha: 0.45), fontSize: 10),
             ),
-            const SizedBox(width: 8),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: palette.primary,
-                foregroundColor: palette.background,
-              ),
-              onPressed: _isSaving
-                  ? null
-                  : () async {
-                      final title = _titleController.text.trim();
-                      final content = _contentController.text.trim();
-                      if (title.isEmpty && content.isEmpty) return;
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancel', style: TextStyle(color: palette.text.withValues(alpha: 0.6))),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: palette.primary,
+                    foregroundColor: palette.background,
+                  ),
+                  onPressed: _isSaving
+                      ? null
+                      : () async {
+                          final title = _titleController.text.trim();
+                          final content = _contentController.text.trim();
+                          if (title.isEmpty && content.isEmpty) return;
 
-                      setState(() => _isSaving = true);
-                      try {
-                        final folderId = ref.read(currentFolderIdProvider);
-                        final repo = ref.read(notesRepositoryProvider);
+                          final navigator = Navigator.of(context);
+                          setState(() => _isSaving = true);
+                          try {
+                            final folderId = ref.read(currentFolderIdProvider);
+                            final repo = ref.read(notesRepositoryProvider);
 
-                        if (existingNote != null) {
-                          await repo.updateNote(NotesCompanion(
-                            id: Value(existingNote.id),
-                            title: Value(title.isEmpty ? '(Untitled)' : title),
-                            content: Value(content),
-                            folderId: Value(existingNote.folderId),
-                            updatedAt: Value(DateTime.now()),
-                          ));
-                        } else {
-                          await repo.createNote(NotesCompanion.insert(
-                            title: title.isEmpty ? '(Untitled)' : title,
-                            content: content,
-                            folderId: Value(folderId),
-                          ));
-                        }
-                        if (mounted) Navigator.of(context).pop();
-                      } finally {
-                        if (mounted) setState(() => _isSaving = false);
-                      }
-                    },
-              child: _isSaving
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Save'),
+                            if (existingNote != null) {
+                              await repo.updateNote(NotesCompanion(
+                                id: Value(existingNote.id),
+                                title: Value(title.isEmpty ? '(Untitled)' : title),
+                                content: Value(content),
+                                folderId: Value(existingNote.folderId),
+                                updatedAt: Value(DateTime.now()),
+                              ));
+                            } else {
+                              await repo.createNote(NotesCompanion.insert(
+                                title: title.isEmpty ? '(Untitled)' : title,
+                                content: content,
+                                folderId: Value(folderId),
+                              ));
+                            }
+                            navigator.pop();
+                          } finally {
+                            if (mounted) setState(() => _isSaving = false);
+                          }
+                        },
+                  child: _isSaving
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Save'),
+                ),
+              ],
             ),
           ],
         ),
@@ -219,7 +310,10 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
       curve: Curves.easeInOut,
       margin: _isFullScreen ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       width: _isFullScreen ? MediaQuery.of(context).size.width : (MediaQuery.of(context).size.width * 0.9).clamp(300.0, 600.0),
-      height: _isFullScreen ? MediaQuery.of(context).size.height : (MediaQuery.of(context).size.height * 0.8).clamp(400.0, 600.0),
+      constraints: BoxConstraints(
+        minHeight: _isFullScreen ? MediaQuery.of(context).size.height : 250,
+        maxHeight: _isFullScreen ? MediaQuery.of(context).size.height : MediaQuery.of(context).size.height * 0.85,
+      ),
       decoration: BoxDecoration(
         color: palette.surface.withValues(alpha: 0.95),
         borderRadius: _isFullScreen ? BorderRadius.zero : BorderRadius.circular(28),
@@ -293,7 +387,6 @@ class _EventShortcutChipState extends State<EventShortcutChip> {
         );
         return;
       }
-      // Dismiss note dialog first, then open the event form
       widget.onDismiss();
       if (!mounted) return;
       await showEventFormSheet(context, initialDay: event.start, existingEvent: event);

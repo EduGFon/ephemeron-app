@@ -132,9 +132,9 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      constraints: const BoxConstraints(maxWidth: 500),
+      constraints: const BoxConstraints(maxWidth: 580),
       decoration: BoxDecoration(
-        color: palette.surface.withValues(alpha: 0.85),
+        color: palette.surface.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: palette.text.withValues(alpha: 0.1), width: 1),
         boxShadow: [
@@ -157,13 +157,29 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
               children: [
                 if (widget.unifiedHeader != null) widget.unifiedHeader!,
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      _isEditing ? 'Edit habit' : 'New habit',
-                      style: TextStyle(color: palette.text, fontSize: 24, fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: TextField(
+                        controller: _nameController,
+                        autofocus: !_isEditing,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(color: palette.text, fontSize: 22, fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                          hintText: 'Habit Name',
+                          hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.3), fontSize: 22, fontWeight: FontWeight.bold),
+                          border: InputBorder.none,
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.text.withValues(alpha: 0.15))),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.primary, width: 2)),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                        ),
+                        textCapitalization: TextCapitalization.sentences,
+                      ),
                     ),
-                    if (_isEditing)
+                    const SizedBox(width: 8),
+                    Icon(Icons.repeat, color: palette.primary),
+                    if (_isEditing) ...[
+                      const SizedBox(width: 8),
                       IconButton(
                         icon: Icon(Icons.delete_outline, color: Colors.redAccent.withValues(alpha: 0.8)),
                         onPressed: () async {
@@ -171,27 +187,8 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                           if (context.mounted) Navigator.pop(context);
                         },
                       ),
+                    ],
                   ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _nameController,
-                  autofocus: !_isEditing,
-                  onChanged: (_) => setState(() {}),
-                  style: TextStyle(color: palette.text),
-                  decoration: InputDecoration(
-                    labelText: 'Name',
-                    labelStyle: TextStyle(color: palette.text.withValues(alpha: 0.6)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: palette.text.withValues(alpha: 0.2)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: palette.primary, width: 2),
-                    ),
-                  ),
-                  textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 16),
                 _buildSectionPicker(palette),

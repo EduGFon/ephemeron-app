@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -140,6 +141,8 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
   late final _notesController = TextEditingController();
   late final _locationController = TextEditingController(text: widget.existingEvent?.location);
   late final _inviteeController = TextEditingController();
+  late final FocusNode _notesFocusNode = FocusNode();
+  Timer? _notesTypingTimer;
 
   late DateTime _start;
   late DateTime _end;
@@ -176,6 +179,13 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
   @override
   void initState() {
     super.initState();
+    _notesFocusNode.addListener(() {
+      if (mounted) {
+        setState(() {
+          _notesPreviewMode = !_notesFocusNode.hasFocus;
+        });
+      }
+    });
     final event = widget.existingEvent;
     final day = widget.initialDay ?? DateTime.now();
     _start = (event?.start ?? DateTime(day.year, day.month, day.day, 9)).toLocal();
@@ -225,6 +235,8 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
 
   @override
   void dispose() {
+    _notesFocusNode.dispose();
+    _notesTypingTimer?.cancel();
     _titleController.dispose();
     _notesController.dispose();
     _locationController.dispose();
@@ -291,7 +303,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                         onTagSelected: _onTagSelected,
                         style: TextStyle(color: palette.text, fontSize: 22, fontWeight: FontWeight.bold),
                         decoration: InputDecoration(
-                          hintText: _isEditing ? 'Edit event' : 'New event',
+                          hintText: 'Event Title',
                           hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.3), fontSize: 22, fontWeight: FontWeight.bold),
                           border: InputBorder.none,
                           enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.text.withValues(alpha: 0.15))),
@@ -612,7 +624,18 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                     ),
                   ),
                 TextButton(
-                  onPressed: () => setState(() => _notesPreviewMode = !_notesPreviewMode),
+                  onPressed: () {
+                    setState(() {
+                      _notesPreviewMode = !_notesPreviewMode;
+                      if (!_notesPreviewMode) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _notesFocusNode.requestFocus();
+                        });
+                      } else {
+                        _notesFocusNode.unfocus();
+                      }
+                    });
+                  },
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     minimumSize: Size.zero,
@@ -627,37 +650,65 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
             ),
           ),
           if (_notesPreviewMode)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              child: _notesController.text.trim().isEmpty
-                  ? Text('No notes', style: TextStyle(color: palette.text.withValues(alpha: 0.3), fontStyle: FontStyle.italic, fontSize: 13))
-                  : MarkdownBody(
-                      data: _notesController.text,
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(color: palette.text, fontSize: 13),
-                        h1: TextStyle(color: palette.text, fontSize: 18, fontWeight: FontWeight.bold),
-                        h2: TextStyle(color: palette.text, fontSize: 16, fontWeight: FontWeight.bold),
-                        strong: TextStyle(color: palette.text, fontWeight: FontWeight.bold),
-                        em: TextStyle(color: palette.text, fontStyle: FontStyle.italic),
-                        code: TextStyle(color: palette.primary, fontFamily: 'monospace', fontSize: 12),
-                      ),
-                    ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() => _notesPreviewMode = false);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _notesFocusNode.requestFocus();
+                    });
+                  },
+                  child: _notesController.text.trim().isEmpty
+                      ? Text('No notes. Click to add.', style: TextStyle(color: palette.text.withValues(alpha: 0.3), fontStyle: FontStyle.italic, fontSize: 13))
+                      : MarkdownBody(
+                          data: _notesController.text,
+                          styleSheet: MarkdownStyleSheet(
+                            p: TextStyle(color: palette.text, fontSize: 13),
+                            h1: TextStyle(color: palette.text, fontSize: 18, fontWeight: FontWeight.bold),
+                            h2: TextStyle(color: palette.text, fontSize: 16, fontWeight: FontWeight.bold),
+                            strong: TextStyle(color: palette.text, fontWeight: FontWeight.bold),
+                            em: TextStyle(color: palette.text, fontStyle: FontStyle.italic),
+                            code: TextStyle(color: palette.primary, fontFamily: 'monospace', fontSize: 12),
+                          ),
+                        ),
+                ),
+              ),
             )
           else
             Flexible(
               child: TextField(
                 controller: _notesController,
+                focusNode: _notesFocusNode,
                 style: TextStyle(color: palette.text, fontSize: 13),
                 maxLines: null,
-                onChanged: (_) => setState(() {}),
+                onChanged: (text) {
+                  _notesTypingTimer?.cancel();
+                  _notesTypingTimer = Timer(const Duration(seconds: 1), () {
+                    if (mounted && _notesFocusNode.hasFocus) {
+                      _notesFocusNode.unfocus();
+                      setState(() => _notesPreviewMode = true);
+                    }
+                  });
+                  setState(() {});
+                },
                 decoration: InputDecoration(
-                  hintText: 'Add notes (syncs to Google, supports **markdown**)...',
+                  hintText: 'Add notes...',
                   hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.3), fontSize: 13),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                 ),
               ),
             ),
+          const Divider(height: 1, thickness: 0.5),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Text(
+              '✨ Supports Markdown format. Syncs with Google Calendar (limit: 8,000 chars. Overflow stored locally only).',
+              style: TextStyle(color: palette.text.withValues(alpha: 0.45), fontSize: 10),
+            ),
+          ),
         ],
       ),
     );
