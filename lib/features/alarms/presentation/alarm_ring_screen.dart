@@ -124,7 +124,15 @@ class _AlarmRingScreenState extends ConsumerState<AlarmRingScreen> {
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline, color: Colors.white70, size: 28),
                       onPressed: _snoozeMinutes > 1
-                          ? () => setState(() => _snoozeMinutes--)
+                          ? () {
+                              setState(() {
+                                if (_snoozeMinutes <= 5) {
+                                  _snoozeMinutes = 1;
+                                } else {
+                                  _snoozeMinutes = (_snoozeMinutes - 5).clamp(1, 60);
+                                }
+                              });
+                            }
                           : null,
                     ),
                     const SizedBox(width: 8),
@@ -147,7 +155,17 @@ class _AlarmRingScreenState extends ConsumerState<AlarmRingScreen> {
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline, color: Colors.white70, size: 28),
-                      onPressed: () => setState(() => _snoozeMinutes++),
+                      onPressed: _snoozeMinutes < 60
+                          ? () {
+                              setState(() {
+                                if (_snoozeMinutes == 1) {
+                                  _snoozeMinutes = 5;
+                                } else {
+                                  _snoozeMinutes = (_snoozeMinutes + 5).clamp(1, 60);
+                                }
+                              });
+                            }
+                          : null,
                     ),
                   ],
                 ),
