@@ -2,8 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/settings/shared_preferences_provider.dart';
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
+import '../../alarms/domain/alarm_preset.dart';
 import '../../alarms/domain/reminder_offset.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_event.dart';
@@ -68,6 +70,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
   late bool _isAllDay;
   String? _colorId;
   late Set<ReminderOffset> _selectedOffsets;
+  AlarmPreset? _alarmPreset;
   bool _isSaving = false;
 
   bool get _isEditing => widget.existingEvent != null;
@@ -82,6 +85,13 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
     _isAllDay = event?.isAllDay ?? false;
     _colorId = event?.colorId;
     _selectedOffsets = (event?.reminderMinutes ?? const []).map(ReminderOffset.fromMinutes).toSet();
+    if (event != null) {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final presetName = prefs.getString('event_alarm_preset_${event.id}');
+      _alarmPreset = presetName != null ? AlarmPreset.values.byName(presetName) : (event.reminderMinutes.isNotEmpty ? AlarmPreset.light : null);
+    } else {
+      _alarmPreset = null;
+    }
   }
 
   @override
@@ -256,27 +266,49 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Remind me', style: TextStyle(color: palette.text, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
+                      Row(
                         children: [
-                          for (final offset in ReminderOffset.presets)
-                            FilterChip(
-                              label: Text(offset.label, style: TextStyle(color: _selectedOffsets.contains(offset) ? palette.background : palette.text)),
-                              selected: _selectedOffsets.contains(offset),
-                              selectedColor: palette.primary,
-                              backgroundColor: palette.surface,
-                              onSelected: (selected) => setState(() {
-                                if (selected) {
-                                  _selectedOffsets.add(offset);
-                                } else {
-                                  _selectedOffsets.remove(offset);
-                                }
-                              }),
-                            ),
+                          Text('Alarm', style: TextStyle(color: palette.text, fontWeight: FontWeight.w500)),
+                          const Spacer(),
+                          DropdownButton<AlarmPreset?>(
+                            dropdownColor: palette.surface,
+                            underline: const SizedBox.shrink(),
+                            style: TextStyle(color: palette.text),
+                            value: _alarmPreset,
+                            hint: Text('None', style: TextStyle(color: palette.text.withValues(alpha: 0.6))),
+                            items: const [
+                              DropdownMenuItem(value: null, child: Text('None')),
+                              DropdownMenuItem(value: AlarmPreset.light, child: Text('Light (Notification)')),
+                              DropdownMenuItem(value: AlarmPreset.medium, child: Text('Medium (Full Screen)')),
+                              DropdownMenuItem(value: AlarmPreset.strong, child: Text('Strong (Long Sound)')),
+                              DropdownMenuItem(value: AlarmPreset.constant, child: Text('Constant Alert')),
+                            ],
+                            onChanged: (value) => setState(() => _alarmPreset = value),
+                          ),
                         ],
                       ),
+                      if (_alarmPreset != null) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (final offset in ReminderOffset.presets)
+                              FilterChip(
+                                label: Text(offset.label, style: TextStyle(color: _selectedOffsets.contains(offset) ? palette.background : palette.text)),
+                                selected: _selectedOffsets.contains(offset),
+                                selectedColor: palette.primary,
+                                backgroundColor: palette.surface,
+                                onSelected: (selected) => setState(() {
+                                  if (selected) {
+                                    _selectedOffsets.add(offset);
+                                  } else {
+                                    _selectedOffsets.remove(offset);
+                                  }
+                                }),
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -336,14 +368,14 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
       end: _end,
       isAllDay: _isAllDay,
       colorId: _colorId,
-      reminderMinutes: _selectedOffsets.map((o) => o.beforeDue.inMinutes).toList(),
+      reminderMinutes: _alarmPreset != null ? _selectedOffsets.map((o) => o.beforeDue.inMinutes).toList() : const [],
     );
 
     try {
       if (_isEditing) {
-        await repo.updateEvent(event);
+        await repo.updateEvent(event, preset: _alarmPreset);
       } else {
-        await repo.createEvent(event);
+        await repo.createEvent(event, preset: _alarmPreset);
       }
       ref.invalidate(monthEventsProvider(DateTime(_start.year, _start.month, 1)));
       ref.invalidate(monthEventsProvider(DateTime(_end.year, _end.month, 1)));

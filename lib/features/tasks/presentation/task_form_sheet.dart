@@ -329,6 +329,8 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                   DropdownMenuItem(value: null, child: Text('None')),
                   DropdownMenuItem(value: AlarmPreset.light, child: Text('Light (Notification)')),
                   DropdownMenuItem(value: AlarmPreset.medium, child: Text('Medium (Full Screen)')),
+                  DropdownMenuItem(value: AlarmPreset.strong, child: Text('Strong (Long Sound)')),
+                  DropdownMenuItem(value: AlarmPreset.constant, child: Text('Constant Alert')),
                 ],
                 onChanged: (value) => setState(() => _alarmPreset = value),
               ),

@@ -556,6 +556,8 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                     items: const [
                       DropdownMenuItem(value: AlarmPreset.light, child: Text('Light (Notification)')),
                       DropdownMenuItem(value: AlarmPreset.medium, child: Text('Medium (Full Screen)')),
+                      DropdownMenuItem(value: AlarmPreset.strong, child: Text('Strong (Long Sound)')),
+                      DropdownMenuItem(value: AlarmPreset.constant, child: Text('Constant Alert')),
                     ],
                     onChanged: (value) => setState(() => _alarmPreset = value),
                   ),

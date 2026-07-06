@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart' show Value, DoUpdate;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show MaterialPageRoute;
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -72,6 +72,10 @@ class AlarmScheduler {
   /// still work on web — only scheduling/repetition doesn't.
   bool get supportsScheduledAlarms => !kIsWeb && !Platform.isLinux;
 
+  Timer? _localAlarmTimer;
+  final List<LocalAlarm> _localAlarms = [];
+  Process? _activeSoundProcess;
+
   AlarmScheduler() : _plugin = FlutterLocalNotificationsPlugin();
 
   final FlutterLocalNotificationsPlugin _plugin;
@@ -81,6 +85,10 @@ class AlarmScheduler {
 
   Future<void> initialize() async {
     await _initializeTimezone();
+
+    if (!supportsScheduledAlarms) {
+      _startLocalAlarmPolling();
+    }
 
     if (kIsWeb || Platform.isLinux) return;
 
@@ -184,16 +192,29 @@ class AlarmScheduler {
     required List<ReminderOffset> offsets,
     required AlarmPreset preset,
   }) async {
-    if (!supportsScheduledAlarms) {
-      debugPrint(
-        'AlarmScheduler: scheduling skipped on web (unsupported by browsers).',
-      );
-      return const [];
-    }
-
     final ids = [
       for (final offset in offsets) _stableId(entityId, offset.presetIndex),
     ];
+
+    if (!supportsScheduledAlarms) {
+      for (var i = 0; i < offsets.length; i++) {
+        final fireAt = dueAt.subtract(offsets[i].beforeDue);
+        if (fireAt.isBefore(DateTime.now())) continue;
+
+        final siblingIds = [...ids]..removeAt(i);
+        _localAlarms.add(LocalAlarm(
+          id: ids[i],
+          entityId: entityId,
+          title: title,
+          body: body,
+          fireAt: fireAt,
+          preset: preset,
+          siblingIds: siblingIds,
+        ));
+      }
+      return ids;
+    }
+
 
     for (var i = 0; i < offsets.length; i++) {
       final fireAt = dueAt.subtract(offsets[i].beforeDue);
@@ -240,18 +261,25 @@ class AlarmScheduler {
     int? weekday,
     required AlarmPreset preset,
   }) async {
-    if (!supportsScheduledAlarms) {
-      debugPrint(
-        'AlarmScheduler: scheduling skipped on web (unsupported by browsers).',
-      );
-      return -1; // never a real ID — real ones are masked non-negative via _stableId
-    }
     final id = Object.hash(entityId, 'recurring', weekday) & 0x7FFFFFFF;
     final scheduled = _nextOccurrence(
       hour: hour,
       minute: minute,
       weekday: weekday,
     );
+
+    if (!supportsScheduledAlarms) {
+      _localAlarms.add(LocalAlarm(
+        id: id,
+        entityId: entityId,
+        title: title,
+        body: body,
+        fireAt: scheduled,
+        preset: preset,
+        siblingIds: const [],
+      ));
+      return id;
+    }
 
     await _plugin.zonedSchedule(
       id: id,
@@ -289,18 +317,25 @@ class AlarmScheduler {
     required int minute,
     required AlarmPreset preset,
   }) async {
-    if (!supportsScheduledAlarms) {
-      debugPrint(
-        'AlarmScheduler: scheduling skipped on web (unsupported by browsers).',
-      );
-      return -1;
-    }
     final id = Object.hash(entityId, 'oneshot') & 0x7FFFFFFF;
     final scheduled = _nextOccurrence(
       hour: hour,
       minute: minute,
       weekday: null,
     );
+
+    if (!supportsScheduledAlarms) {
+      _localAlarms.add(LocalAlarm(
+        id: id,
+        entityId: entityId,
+        title: title,
+        body: body,
+        fireAt: scheduled,
+        preset: preset,
+        siblingIds: const [],
+      ));
+      return id;
+    }
     await _plugin.zonedSchedule(
       id: id,
       title: title,
@@ -348,6 +383,8 @@ class AlarmScheduler {
   /// event/habit is deleted or rescheduled, and internally when the user
   /// marks something done from a notification action.
   Future<void> cancelByIds(List<int> ids) async {
+    _localAlarms.removeWhere((a) => ids.contains(a.id));
+    if (!supportsScheduledAlarms) return;
     for (final id in ids) {
       await _plugin.cancel(id: id);
     }
@@ -510,15 +547,27 @@ class AlarmScheduler {
       payload.entityId,
       -1,
     ); // -1: reserved for the "current snooze" slot
-    await _plugin.zonedSchedule(
-      id: id,
-      title: payload.title,
-      body: payload.body,
-      scheduledDate: tz.TZDateTime.from(fireAt, tz.local),
-      notificationDetails: _detailsForPreset(payload.preset),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: payload.encode(),
-    );
+    if (!supportsScheduledAlarms) {
+      _localAlarms.add(LocalAlarm(
+        id: id,
+        entityId: payload.entityId,
+        title: payload.title,
+        body: payload.body,
+        fireAt: fireAt,
+        preset: payload.preset,
+        siblingIds: payload.siblingIds,
+      ));
+    } else {
+      await _plugin.zonedSchedule(
+        id: id,
+        title: payload.title,
+        body: payload.body,
+        scheduledDate: tz.TZDateTime.from(fireAt, tz.local),
+        notificationDetails: _detailsForPreset(payload.preset),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: payload.encode(),
+      );
+    }
     _actionController.add(
       AlarmAction(payload.entityId, AlarmActionType.snoozed),
     );
@@ -531,7 +580,141 @@ class AlarmScheduler {
     _actionController.add(AlarmAction(payload.entityId, AlarmActionType.done));
   }
 
+  void _startLocalAlarmPolling() {
+    _localAlarmTimer?.cancel();
+    _localAlarmTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final now = DateTime.now();
+      final due = _localAlarms.where((a) => a.fireAt.isBefore(now)).toList();
+      for (final alarm in due) {
+        _localAlarms.remove(alarm);
+        _triggerLocalAlarm(alarm);
+      }
+    });
+  }
+
+  void _triggerLocalAlarm(LocalAlarm alarm) {
+    final isConstant = alarm.preset == AlarmPreset.constant;
+    final isLongSound = alarm.preset == AlarmPreset.strong || isConstant;
+    _playAlarmSound(longSound: isLongSound, loop: isConstant);
+
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return;
+
+    if (alarm.preset == AlarmPreset.light) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(alarm.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              if (alarm.body.isNotEmpty) Text(alarm.body),
+            ],
+          ),
+          action: SnackBarAction(
+            label: 'Mark Done',
+            onPressed: () {
+              _stopAlarmSound();
+              final payload = AlarmPayload(
+                entityId: alarm.entityId,
+                title: alarm.title,
+                body: alarm.body,
+                preset: alarm.preset,
+                siblingIds: alarm.siblingIds,
+              );
+              markDone(payload);
+            },
+          ),
+          duration: const Duration(seconds: 10),
+        ),
+      );
+      Timer(const Duration(seconds: 5), () {
+        _stopAlarmSound();
+      });
+    } else {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return _InAppAlarmDialog(
+            alarm: alarm,
+            onSnooze: (snoozeMinutes) {
+              _stopAlarmSound();
+              final payload = AlarmPayload(
+                entityId: alarm.entityId,
+                title: alarm.title,
+                body: alarm.body,
+                preset: alarm.preset,
+                siblingIds: alarm.siblingIds,
+              );
+              unawaited(snooze(payload, snoozeFor: Duration(minutes: snoozeMinutes)));
+              Navigator.of(dialogContext).pop();
+            },
+            onDone: () {
+              _stopAlarmSound();
+              final payload = AlarmPayload(
+                entityId: alarm.entityId,
+                title: alarm.title,
+                body: alarm.body,
+                preset: alarm.preset,
+                siblingIds: alarm.siblingIds,
+              );
+              unawaited(markDone(payload));
+              Navigator.of(dialogContext).pop();
+            },
+          );
+        },
+      );
+    }
+  }
+
+  void _playAlarmSound({bool longSound = false, bool loop = false}) async {
+    _activeSoundProcess?.kill();
+    _activeSoundProcess = null;
+
+    final soundPath = longSound
+        ? '/usr/share/sounds/ocean/stereo/phone-incoming-call.oga'
+        : '/usr/share/sounds/ocean/stereo/alarm-clock-elapsed.oga';
+
+    Future<void> runPlay() async {
+      try {
+        _activeSoundProcess = await Process.start('paplay', [soundPath]);
+        if (loop) {
+          unawaited(_activeSoundProcess?.exitCode.then((code) {
+            if (_activeSoundProcess != null) {
+              unawaited(runPlay());
+            }
+          }));
+        }
+      } catch (_) {
+        try {
+          _activeSoundProcess = await Process.start('pw-play', [soundPath]);
+          if (loop) {
+            unawaited(_activeSoundProcess?.exitCode.then((code) {
+              if (_activeSoundProcess != null) {
+                unawaited(runPlay());
+              }
+            }));
+          }
+        } catch (_) {
+          try {
+            _activeSoundProcess = await Process.start('aplay', ['/usr/share/sounds/alsa/Front_Center.wav']);
+          } catch (_) {}
+        }
+      }
+    }
+
+    unawaited(runPlay());
+  }
+
+  void _stopAlarmSound() {
+    _activeSoundProcess?.kill();
+    _activeSoundProcess = null;
+  }
+
   void dispose() {
+    _localAlarmTimer?.cancel();
+    _stopAlarmSound();
     _actionController.close();
   }
 }
@@ -668,5 +851,233 @@ void notificationTapBackground(NotificationResponse response) async {
           'AlarmScheduler background isolate DB update failed: $e',
         );
       }
+  }
+}
+
+class LocalAlarm {
+  final int id;
+  final String entityId;
+  final String title;
+  final String body;
+  final DateTime fireAt;
+  final AlarmPreset preset;
+  final List<int> siblingIds;
+
+  LocalAlarm({
+    required this.id,
+    required this.entityId,
+    required this.title,
+    required this.body,
+    required this.fireAt,
+    required this.preset,
+    required this.siblingIds,
+  });
+}
+
+class _InAppAlarmDialog extends StatefulWidget {
+  final LocalAlarm alarm;
+  final void Function(int minutes) onSnooze;
+  final VoidCallback onDone;
+
+  const _InAppAlarmDialog({
+    required this.alarm,
+    required this.onSnooze,
+    required this.onDone,
+  });
+
+  @override
+  State<_InAppAlarmDialog> createState() => _InAppAlarmDialogState();
+}
+
+class _InAppAlarmDialogState extends State<_InAppAlarmDialog> {
+  int _snoozeMinutes = 5;
+  Timer? _autoSnoozeTimer;
+  late int _remainingSeconds;
+
+  @override
+  void initState() {
+    super.initState();
+    final isConstant = widget.alarm.preset == AlarmPreset.constant;
+    _remainingSeconds = isConstant ? 600 : 30; // 10 minutes or 30 seconds
+
+    _autoSnoozeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds <= 1) {
+        timer.cancel();
+        widget.onSnooze(_snoozeMinutes);
+      } else {
+        if (mounted) {
+          setState(() {
+            _remainingSeconds--;
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoSnoozeTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {}, // non-dismissible
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
+          Center(
+            child: Container(
+              width: (mediaQuery.size.width * 0.85).clamp(280.0, 420.0),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E292B), // premium deep petrol dark color
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 25,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.alarm_on,
+                    size: 64,
+                    color: Color(0xFFD89B3C),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    widget.alarm.title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Fraunces',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 22,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (widget.alarm.body.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.alarm.body,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  const Text(
+                    'SNOOZE DURATION',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, color: Colors.white70),
+                        onPressed: () {
+                          setState(() {
+                            _snoozeMinutes = (_snoozeMinutes - 1).clamp(1, 60);
+                          });
+                        },
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '$_snoozeMinutes min',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, color: Colors.white70),
+                        onPressed: () {
+                          setState(() {
+                            _snoozeMinutes = (_snoozeMinutes + 1).clamp(1, 60);
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white38),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: () => widget.onSnooze(_snoozeMinutes),
+                          child: const Text('Snooze'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFFD89B3C),
+                            foregroundColor: Colors.black87,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: widget.onDone,
+                          child: const Text('Mark Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Auto-snoozing in $_remainingSeconds seconds...',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

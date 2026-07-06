@@ -8,6 +8,7 @@ import '../../../data/local/database.dart';
 import '../../alarms/data/alarm_scheduler.dart';
 import '../../alarms/domain/alarm_preset.dart';
 import '../../alarms/domain/reminder_offset.dart';
+import '../../../core/settings/shared_preferences_provider.dart';
 import '../../auth/google/google_auth_repository.dart';
 import '../domain/calendar_event.dart';
 
@@ -131,16 +132,22 @@ class CalendarRepository {
     return events;
   }
 
-  Future<CalendarEvent> createEvent(CalendarEvent event) async {
+  Future<CalendarEvent> createEvent(CalendarEvent event, {AlarmPreset? preset}) async {
     final api = await _api();
     final created = await api.events.insert(event.toGoogle(), event.calendarId);
     final result = CalendarEvent.fromGoogle(created, calendarId: event.calendarId);
+    if (preset != null) {
+      await sharedPrefs.setString('event_alarm_preset_${result.id}', preset.name);
+    }
     await _scheduleEventAlarms([result]);
     return result;
   }
 
-  Future<CalendarEvent> updateEvent(CalendarEvent event) async {
+  Future<CalendarEvent> updateEvent(CalendarEvent event, {AlarmPreset? preset}) async {
     final api = await _api();
+    if (preset != null) {
+      await sharedPrefs.setString('event_alarm_preset_${event.id}', preset.name);
+    }
     final updated = await api.events.update(
       event.toGoogle(),
       event.calendarId,
@@ -173,13 +180,16 @@ class CalendarRepository {
       final offsets = event.reminderMinutes
           .map(ReminderOffset.fromMinutes)
           .toList();
+      final presetName = sharedPrefs.getString('event_alarm_preset_${event.id}') ?? 'light';
+      final preset = AlarmPreset.values.byName(presetName);
+
       await _alarmScheduler.scheduleAlarmsForOffsets(
         entityId: event.id,
         title: event.title,
         body: event.location ?? '',
         dueAt: event.start,
         offsets: offsets,
-        preset: AlarmPreset.light,
+        preset: preset,
       );
     }
   }
