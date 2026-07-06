@@ -124,10 +124,114 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
           const _SectionHeader('Sync & Caching'),
           const _SyncSettingsTile(),
+          const Divider(),
+          const _SectionHeader('Alarm Configuration'),
+          ListTile(
+            title: const Text('Short Alarm Sound Path'),
+            subtitle: Text(settings.alarmShortSoundPath),
+            trailing: const Icon(Icons.music_note, size: 20),
+            onTap: () => _editSoundPath(context, ref, 'short', settings.alarmShortSoundPath),
+          ),
+          ListTile(
+            title: const Text('Long Alarm Sound Path'),
+            subtitle: Text(settings.alarmLongSoundPath),
+            trailing: const Icon(Icons.music_note, size: 20),
+            onTap: () => _editSoundPath(context, ref, 'long', settings.alarmLongSoundPath),
+          ),
+          ListTile(
+            title: const Text('Alarm Screen Background'),
+            subtitle: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: _parseColor(settings.alarmBackground),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(settings.alarmBackground),
+              ],
+            ),
+            trailing: const Icon(Icons.color_lens, size: 20),
+            onTap: () => _editAlarmBackground(context, ref, settings.alarmBackground),
+          ),
         ],
       ),
     );
    }
+
+  static Color _parseColor(String hex) {
+    try {
+      final c = hex.replaceAll('#', '');
+      return Color(int.parse('FF$c', radix: 16));
+    } catch (_) {
+      return const Color(0xFF005F73); // petrol default
+    }
+  }
+
+  static void _editSoundPath(BuildContext context, WidgetRef ref, String type, String current) {
+    final controller = TextEditingController(text: current);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text('Edit ${type == 'short' ? 'Short' : 'Long'} Alarm Sound Path', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(fontSize: 14),
+          decoration: const InputDecoration(hintText: '/path/to/sound.wav'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final path = controller.text.trim();
+              if (path.isNotEmpty) {
+                if (type == 'short') {
+                  ref.read(appSettingsProvider.notifier).setAlarmShortSoundPath(path);
+                } else {
+                  ref.read(appSettingsProvider.notifier).setAlarmLongSoundPath(path);
+                }
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static void _editAlarmBackground(BuildContext context, WidgetRef ref, String current) {
+    final controller = TextEditingController(text: current);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        title: const Text('Edit Alarm Background Hex Color', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(fontSize: 14),
+          decoration: const InputDecoration(hintText: '#005F73'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final val = controller.text.trim();
+              if (val.isNotEmpty) {
+                ref.read(appSettingsProvider.notifier).setAlarmBackground(val);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
 
   static String _dayName(int isoDay) {
     const names = {

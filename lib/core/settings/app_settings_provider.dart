@@ -16,6 +16,9 @@ class AppSettings {
     this.calendarStartDay = 7, // Sunday by default (1=Mon..7=Sun)
     this.autoSync = true,
     this.syncIntervalMinutes = 30,
+    this.alarmShortSoundPath = '/usr/share/sounds/ocean/stereo/alarm-clock-elapsed.oga',
+    this.alarmLongSoundPath = '/usr/share/sounds/ocean/stereo/phone-incoming-call.oga',
+    this.alarmBackground = '#005F73', // Petrol default hex color
   });
 
   final bool reducedMotion;
@@ -38,6 +41,10 @@ class AppSettings {
   final bool autoSync;
   final int syncIntervalMinutes;
 
+  final String alarmShortSoundPath;
+  final String alarmLongSoundPath;
+  final String alarmBackground;
+
   /// Effective "should we skip decorative animation" flag: the user's
   /// explicit toggle, their manual power-saving override, OR the OS
   /// actually reporting battery saver is on. Every animated widget in
@@ -52,6 +59,9 @@ class AppSettings {
     int? calendarStartDay,
     bool? autoSync,
     int? syncIntervalMinutes,
+    String? alarmShortSoundPath,
+    String? alarmLongSoundPath,
+    String? alarmBackground,
   }) {
     return AppSettings(
       reducedMotion: reducedMotion ?? this.reducedMotion,
@@ -61,6 +71,9 @@ class AppSettings {
       calendarStartDay: calendarStartDay ?? this.calendarStartDay,
       autoSync: autoSync ?? this.autoSync,
       syncIntervalMinutes: syncIntervalMinutes ?? this.syncIntervalMinutes,
+      alarmShortSoundPath: alarmShortSoundPath ?? this.alarmShortSoundPath,
+      alarmLongSoundPath: alarmLongSoundPath ?? this.alarmLongSoundPath,
+      alarmBackground: alarmBackground ?? this.alarmBackground,
     );
   }
 }
@@ -72,6 +85,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   static const _calendarStartDayKey = 'settings.calendarStartDay';
   static const _autoSyncKey = 'settings.autoSync';
   static const _syncIntervalMinutesKey = 'settings.syncIntervalMinutes';
+  static const _alarmShortSoundPathKey = 'settings.alarmShortSoundPath';
+  static const _alarmLongSoundPathKey = 'settings.alarmLongSoundPath';
+  static const _alarmBackgroundKey = 'settings.alarmBackground';
   final _battery = Battery();
 
   @override
@@ -92,6 +108,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       calendarStartDay: prefs.getInt(_calendarStartDayKey) ?? 7,
       autoSync: prefs.getBool(_autoSyncKey) ?? true,
       syncIntervalMinutes: prefs.getInt(_syncIntervalMinutesKey) ?? 30,
+      alarmShortSoundPath: prefs.getString(_alarmShortSoundPathKey) ?? '/usr/share/sounds/ocean/stereo/alarm-clock-elapsed.oga',
+      alarmLongSoundPath: prefs.getString(_alarmLongSoundPathKey) ?? '/usr/share/sounds/ocean/stereo/phone-incoming-call.oga',
+      alarmBackground: prefs.getString(_alarmBackgroundKey) ?? '#005F73',
     );
   }
 
@@ -144,6 +163,24 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(syncIntervalMinutes: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_syncIntervalMinutesKey, value);
+  }
+
+  Future<void> setAlarmShortSoundPath(String value) async {
+    state = state.copyWith(alarmShortSoundPath: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_alarmShortSoundPathKey, value);
+  }
+
+  Future<void> setAlarmLongSoundPath(String value) async {
+    state = state.copyWith(alarmLongSoundPath: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_alarmLongSoundPathKey, value);
+  }
+
+  Future<void> setAlarmBackground(String value) async {
+    state = state.copyWith(alarmBackground: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_alarmBackgroundKey, value);
   }
 }
 

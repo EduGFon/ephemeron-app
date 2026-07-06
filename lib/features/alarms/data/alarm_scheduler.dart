@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert' show jsonDecode;
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:drift/drift.dart' show Value, DoUpdate;
 import 'package:flutter/foundation.dart';
@@ -672,9 +673,10 @@ class AlarmScheduler {
     _activeSoundProcess?.kill();
     _activeSoundProcess = null;
 
+    final prefs = await SharedPreferences.getInstance();
     final soundPath = longSound
-        ? '/usr/share/sounds/ocean/stereo/phone-incoming-call.oga'
-        : '/usr/share/sounds/ocean/stereo/alarm-clock-elapsed.oga';
+        ? (prefs.getString('settings.alarmLongSoundPath') ?? '/usr/share/sounds/ocean/stereo/phone-incoming-call.oga')
+        : (prefs.getString('settings.alarmShortSoundPath') ?? '/usr/share/sounds/ocean/stereo/alarm-clock-elapsed.oga');
 
     Future<void> runPlay() async {
       try {
