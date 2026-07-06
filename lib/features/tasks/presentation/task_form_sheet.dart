@@ -81,7 +81,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
     super.initState();
     final task = widget.existingTask;
     if (task != null) {
-      _dueDate = task.dueDate;
+      _dueDate = task.dueDate?.toLocal();
       _dueHasTime = task.dueHasTime;
       _alarmPreset = task.alarmPreset != null
           ? AlarmPreset.values.byName(task.alarmPreset!)

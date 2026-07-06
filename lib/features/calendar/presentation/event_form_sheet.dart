@@ -77,8 +77,8 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
     super.initState();
     final event = widget.existingEvent;
     final day = widget.initialDay ?? DateTime.now();
-    _start = event?.start ?? DateTime(day.year, day.month, day.day, 9);
-    _end = event?.end ?? _start.add(const Duration(hours: 1));
+    _start = (event?.start ?? DateTime(day.year, day.month, day.day, 9)).toLocal();
+    _end = (event?.end ?? _start.add(const Duration(hours: 1))).toLocal();
     _isAllDay = event?.isAllDay ?? false;
     _colorId = event?.colorId;
     _selectedOffsets = (event?.reminderMinutes ?? const []).map(ReminderOffset.fromMinutes).toSet();

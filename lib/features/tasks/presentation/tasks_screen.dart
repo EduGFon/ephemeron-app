@@ -304,11 +304,12 @@ class _TaskTile extends ConsumerWidget {
   }
 
   String _formatDue(DateTime due, bool hasTime) {
+    final localDue = due.toLocal();
     final date =
-        '${due.year}-${due.month.toString().padLeft(2, '0')}-'
-        '${due.day.toString().padLeft(2, '0')}';
+        '${localDue.year}-${localDue.month.toString().padLeft(2, '0')}-'
+        '${localDue.day.toString().padLeft(2, '0')}';
     if (!hasTime) return date;
-    return '$date ${due.hour.toString().padLeft(2, '0')}:'
-        '${due.minute.toString().padLeft(2, '0')}';
+    return '$date ${localDue.hour.toString().padLeft(2, '0')}:'
+        '${localDue.minute.toString().padLeft(2, '0')}';
   }
 }
