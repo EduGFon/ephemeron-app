@@ -558,7 +558,19 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       barrierColor: Colors.black54,
       transitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (context, anim1, anim2) {
-        return NoteFormSheet(existingNote: existingNote);
+        return Center(
+          child: SingleChildScrollView(
+            child: Material(
+              color: Colors.transparent,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: NoteFormSheet(existingNote: existingNote),
+              ),
+            ),
+          ),
+        );
       },
       transitionBuilder: (context, anim1, anim2, child) {
         return ScaleTransition(
