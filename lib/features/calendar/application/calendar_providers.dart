@@ -5,6 +5,8 @@ import '../../alarms/application/alarm_scheduler_provider.dart';
 import '../../auth/google/google_auth_provider.dart';
 import '../domain/calendar_event.dart';
 import '../data/calendar_repository.dart';
+import '../../tasks/application/task_providers.dart';
+import '../../tasks/data/task_repository.dart';
 
 final calendarRepositoryProvider = Provider<CalendarRepository>((ref) {
   return CalendarRepository(
@@ -23,7 +25,48 @@ final monthEventsProvider =
   final repo = ref.watch(calendarRepositoryProvider);
   final start = DateTime(month.year, month.month, 1);
   final end = DateTime(month.year, month.month + 1, 1);
-  return repo.listEvents(rangeStart: start, rangeEnd: end);
+
+  // Fetch calendar events
+  final events = await repo.listEvents(rangeStart: start, rangeEnd: end);
+
+  // Fetch local tasks
+  final tasksAsync = ref.watch(calendarTasksProvider);
+  final entries = tasksAsync.value ?? [];
+
+  // Group by task ID to avoid duplicates from tag color joins
+  final map = <String, TaskCalendarEntry>{};
+  for (final entry in entries) {
+    if (!map.containsKey(entry.task.id)) {
+      map[entry.task.id] = entry;
+    }
+  }
+
+  // Filter tasks in range and convert to CalendarEvents
+  final taskEvents = map.values.where((entry) {
+    if (entry.task.dueDate == null) return false;
+    final due = entry.task.dueDate!;
+    return due.isAfter(start.subtract(const Duration(days: 1))) &&
+           due.isBefore(end.add(const Duration(days: 1)));
+  }).map((entry) {
+    final t = entry.task;
+    final start = t.dueDate!;
+    final end = start.add(Duration(minutes: t.durationMinutes));
+
+    // Show checkmark prefix if completed, empty box if not
+    final prefix = t.isCompleted ? '✓ ' : '☐ ';
+
+    return CalendarEvent(
+      id: 'task:${t.id}',
+      title: '$prefix${t.title}',
+      description: t.description,
+      start: start,
+      end: end,
+      isAllDay: !t.dueHasTime,
+      colorId: 'task:${entry.tagColorHex ?? ''}',
+    );
+  }).toList();
+
+  return [...events, ...taskEvents];
 });
 
 /// Derives a single day's events from whatever month is currently

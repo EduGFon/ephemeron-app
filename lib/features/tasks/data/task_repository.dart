@@ -461,6 +461,8 @@ class TaskRepository {
     )..where((t) => t.id.equals(taskId))).getSingleOrNull();
   }
 
+  Future<Task?> getTask(String taskId) => _getTask(taskId);
+
   Future<void> _cancelAlarms(Task task) async {
     final ids = _decodeAlarmIds(task.scheduledAlarmIds);
     if (ids.isNotEmpty) await _alarmScheduler.cancelByIds(ids);
@@ -710,6 +712,31 @@ class TaskRepository {
         await (_db.update(_db.tasks)..where((t) => t.id.equals(taskIds[i])))
             .write(TasksCompanion(sortOrder: Value(i)));
       }
+    });
+  }
+}
+
+class TaskCalendarEntry {
+  final Task task;
+  final String? tagColorHex;
+  TaskCalendarEntry(this.task, this.tagColorHex);
+}
+
+extension TaskCalendarRepositoryExtension on TaskRepository {
+  Stream<List<TaskCalendarEntry>> watchTasksForCalendar() {
+    final query = _db.select(_db.tasks).join([
+      leftOuterJoin(_db.taskTags, _db.taskTags.taskId.equalsExp(_db.tasks.id)),
+      leftOuterJoin(_db.tags, _db.tags.id.equalsExp(_db.taskTags.tagId)),
+    ])..where(_db.tasks.isDeleted.equals(false) & _db.tasks.isWontDo.equals(false) & _db.tasks.dueDate.isNotNull());
+
+    return query.watch().map((rows) {
+      final list = <TaskCalendarEntry>[];
+      for (final row in rows) {
+        final task = row.readTable(_db.tasks);
+        final tag = row.readTableOrNull(_db.tags);
+        list.add(TaskCalendarEntry(task, tag?.colorHex));
+      }
+      return list;
     });
   }
 }

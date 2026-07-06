@@ -136,5 +136,39 @@ void main() {
       final next2 = recurrence.nextOccurrence(next1!);
       expect(next2, DateTime(2026, 7, 9, 10, 0));
     });
+
+    test('watchTasksForCalendar fetches scheduled active tasks with tag color joins', () async {
+      final inbox = await db.into(db.lists).insertReturning(
+            ListsCompanion.insert(
+              name: 'Inbox',
+              isInbox: const Value(true),
+            ),
+          );
+
+      final tag = await db.into(db.tags).insertReturning(
+            TagsCompanion.insert(
+              name: 'Urgent',
+              colorHex: const Value('#E67C73'),
+            ),
+          );
+
+      final task = await repository.createTask(
+        listId: inbox.id,
+        title: 'Calendar Task',
+        dueDate: DateTime(2026, 7, 6, 12, 0),
+      );
+
+      await db.into(db.taskTags).insert(
+            TaskTagsCompanion.insert(
+              taskId: task.id,
+              tagId: tag.id,
+            ),
+          );
+
+      final calendarTasks = await repository.watchTasksForCalendar().first;
+      expect(calendarTasks.length, 1);
+      expect(calendarTasks[0].task.id, task.id);
+      expect(calendarTasks[0].tagColorHex, '#E67C73');
+    });
   });
 }

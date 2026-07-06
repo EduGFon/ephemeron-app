@@ -6,6 +6,8 @@ import '../../../core/theme/theme_palettes.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_event.dart';
 import 'event_form_sheet.dart';
+import '../../tasks/presentation/task_form_sheet.dart';
+import '../../tasks/application/task_providers.dart';
 
 class CalendarMonthGridView extends ConsumerWidget {
   const CalendarMonthGridView({
@@ -244,7 +246,7 @@ class CalendarMonthGridView extends ConsumerWidget {
     if (event.isAllDay) {
       // Rounded colored block for All-day events
       return GestureDetector(
-        onTap: () => showEventFormSheet(context, initialDay: event.start, existingEvent: event),
+        onTap: () => _onEventTapped(context, ref, event),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 1, horizontal: 2),
           padding: const EdgeInsets.symmetric(vertical: 1.5, horizontal: 4),
@@ -267,7 +269,7 @@ class CalendarMonthGridView extends ConsumerWidget {
     } else {
       // Small dot + Time + Title for Timed events
       return GestureDetector(
-        onTap: () => showEventFormSheet(context, initialDay: event.start, existingEvent: event),
+        onTap: () => _onEventTapped(context, ref, event),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 0.5),
           padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -311,12 +313,34 @@ class CalendarMonthGridView extends ConsumerWidget {
 
   Color _getEventColor(String? colorId, AppPalette palette) {
     if (colorId == null) return palette.primary;
+    if (colorId.startsWith('task:')) {
+      final hex = colorId.substring(5);
+      if (hex.isNotEmpty) {
+        try {
+          final c = hex.replaceAll('#', '');
+          return Color(int.parse('FF$c', radix: 16));
+        } catch (_) {}
+      }
+      return palette.primary;
+    }
     final match = GoogleEventColor.options.firstWhere(
       (c) => c.id == colorId,
       orElse: () => const GoogleEventColor('0', 'Default', 0),
     );
     if (match.id == '0') return palette.primary;
     return Color(match.hex);
+  }
+
+  void _onEventTapped(BuildContext context, WidgetRef ref, CalendarEvent event) async {
+    if (event.id.startsWith('task:')) {
+      final taskId = event.id.substring(5);
+      final task = await ref.read(taskRepositoryProvider).getTask(taskId);
+      if (task != null && context.mounted) {
+        showTaskFormSheet(context, listId: task.listId, existingTask: task);
+      }
+    } else {
+      showEventFormSheet(context, initialDay: event.start, existingEvent: event);
+    }
   }
 
   String _formatEventTime(DateTime dt) {

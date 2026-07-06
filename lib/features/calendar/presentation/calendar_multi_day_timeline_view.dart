@@ -6,6 +6,8 @@ import '../../../core/theme/theme_palettes.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_event.dart';
 import 'event_form_sheet.dart';
+import '../../tasks/presentation/task_form_sheet.dart';
+import '../../tasks/application/task_providers.dart';
 
 class PositionedEvent {
   final CalendarEvent event;
@@ -160,7 +162,7 @@ class CalendarMultiDayTimelineView extends ConsumerWidget {
                             ),
                       const SizedBox(height: 6),
                       // Reserved all-day events space for this day
-                      ..._buildAllDayEventsForDay(context, day, palette),
+                      ..._buildAllDayEventsForDay(context, ref, day, palette),
                     ],
                   ),
                 ),
@@ -260,6 +262,7 @@ class CalendarMultiDayTimelineView extends ConsumerWidget {
 
   List<Widget> _buildAllDayEventsForDay(
     BuildContext context,
+    WidgetRef ref,
     DateTime day,
     AppPalette palette,
   ) {
@@ -274,11 +277,7 @@ class CalendarMultiDayTimelineView extends ConsumerWidget {
     return [
       for (final event in allDayList)
         GestureDetector(
-          onTap: () => showEventFormSheet(
-            context,
-            initialDay: event.start,
-            existingEvent: event,
-          ),
+          onTap: () => _onEventTapped(context, ref, event),
           child: Container(
             margin: const EdgeInsets.only(top: 2, left: 2, right: 2),
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2.5),
@@ -331,11 +330,7 @@ class CalendarMultiDayTimelineView extends ConsumerWidget {
       width: width - 4,
       height: height - 2,
       child: GestureDetector(
-        onTap: () => showEventFormSheet(
-          context,
-          initialDay: startLocal,
-          existingEvent: event,
-        ),
+        onTap: () => _onEventTapped(context, ref, event),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
@@ -384,12 +379,34 @@ class CalendarMultiDayTimelineView extends ConsumerWidget {
 
   Color _getEventColor(String? colorId, AppPalette palette) {
     if (colorId == null) return palette.primary;
+    if (colorId.startsWith('task:')) {
+      final hex = colorId.substring(5);
+      if (hex.isNotEmpty) {
+        try {
+          final c = hex.replaceAll('#', '');
+          return Color(int.parse('FF$c', radix: 16));
+        } catch (_) {}
+      }
+      return palette.primary;
+    }
     final match = GoogleEventColor.options.firstWhere(
       (c) => c.id == colorId,
       orElse: () => const GoogleEventColor('0', 'Default', 0),
     );
     if (match.id == '0') return palette.primary;
     return Color(match.hex);
+  }
+
+  void _onEventTapped(BuildContext context, WidgetRef ref, CalendarEvent event) async {
+    if (event.id.startsWith('task:')) {
+      final taskId = event.id.substring(5);
+      final task = await ref.read(taskRepositoryProvider).getTask(taskId);
+      if (task != null && context.mounted) {
+        showTaskFormSheet(context, listId: task.listId, existingTask: task);
+      }
+    } else {
+      showEventFormSheet(context, initialDay: event.start, existingEvent: event);
+    }
   }
 
   String _formatTime(DateTime dt) {

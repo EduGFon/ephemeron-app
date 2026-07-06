@@ -179,3 +179,7 @@ final completedTasksInListProvider = Provider.family<AsyncValue<List<Task>>, Str
 
 final selectedListIdProvider = StateProvider<String?>((ref) => null);
 
+final calendarTasksProvider = StreamProvider<List<TaskCalendarEntry>>((ref) {
+  return ref.watch(taskRepositoryProvider).watchTasksForCalendar();
+});
+

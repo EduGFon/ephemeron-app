@@ -17,6 +17,8 @@ import 'calendar_daily_timeline_view.dart';
 import 'calendar_month_grid_view.dart';
 import 'calendar_multi_day_timeline_view.dart';
 import 'event_form_sheet.dart';
+import '../../tasks/presentation/task_form_sheet.dart';
+import '../../tasks/application/task_providers.dart';
 
 class CalendarFormatNotifier extends Notifier<CalendarFormat> {
   @override
@@ -437,12 +439,30 @@ class _EventTile extends ConsumerWidget {
   final CalendarEvent event;
   final AppPalette palette;
 
+  Color _getTileColor(String? colorId, AppPalette palette) {
+    if (colorId != null) {
+      if (colorId.startsWith('task:')) {
+        final hex = colorId.substring(5);
+        if (hex.isNotEmpty) {
+          try {
+            final c = hex.replaceAll('#', '');
+            return Color(int.parse('FF$c', radix: 16));
+          } catch (_) {}
+        }
+        return palette.primary;
+      }
+      final match = GoogleEventColor.options.firstWhere(
+        (c) => c.id == colorId,
+        orElse: () => GoogleEventColor.options[6],
+      );
+      return Color(match.hex);
+    }
+    return Color(GoogleEventColor.options[6].hex);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final color = GoogleEventColor.options.firstWhere(
-      (c) => c.id == event.colorId,
-      orElse: () => GoogleEventColor.options[6],
-    );
+    final eventColor = _getTileColor(event.colorId, palette);
 
     return Container(
       decoration: BoxDecoration(
@@ -460,7 +480,7 @@ class _EventTile extends ConsumerWidget {
               width: 12,
               height: 40,
               decoration: BoxDecoration(
-                color: Color(color.hex),
+                color: eventColor,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -483,20 +503,30 @@ class _EventTile extends ConsumerWidget {
                     children: event.tags.map((tag) => Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Color(color.hex).withValues(alpha: 0.2),
+                        color: eventColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(tag, style: TextStyle(color: Color(color.hex), fontSize: 10, fontWeight: FontWeight.bold)),
+                      child: Text(tag, style: TextStyle(color: eventColor, fontSize: 10, fontWeight: FontWeight.bold)),
                     )).toList(),
                   ),
                 ],
               ],
             ),
-            onTap: () => showEventFormSheet(
-              context,
-              initialDay: event.start,
-              existingEvent: event,
-            ),
+            onTap: () async {
+              if (event.id.startsWith('task:')) {
+                final taskId = event.id.substring(5);
+                final task = await ref.read(taskRepositoryProvider).getTask(taskId);
+                if (task != null && context.mounted) {
+                  showTaskFormSheet(context, listId: task.listId, existingTask: task);
+                }
+              } else {
+                showEventFormSheet(
+                  context,
+                  initialDay: event.start,
+                  existingEvent: event,
+                );
+              }
+            },
             onLongPress: () => _confirmDelete(context, ref),
           ),
         ),
@@ -510,10 +540,11 @@ class _EventTile extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final isTask = event.id.startsWith('task:');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete event?'),
+        title: Text(isTask ? 'Delete task?' : 'Delete event?'),
         content: Text(event.title),
         actions: [
           TextButton(
@@ -528,9 +559,15 @@ class _EventTile extends ConsumerWidget {
       ),
     );
     if (confirmed != true) return;
-    await ref.read(calendarRepositoryProvider).deleteEvent(event.id);
-    ref.invalidate(
-      monthEventsProvider(DateTime(event.start.year, event.start.month, 1)),
-    );
+
+    if (isTask) {
+      final taskId = event.id.substring(5);
+      await ref.read(taskRepositoryProvider).softDeleteTask(taskId);
+    } else {
+      await ref.read(calendarRepositoryProvider).deleteEvent(event.id);
+      ref.invalidate(
+        monthEventsProvider(DateTime(event.start.year, event.start.month, 1)),
+      );
+    }
   }
 }
