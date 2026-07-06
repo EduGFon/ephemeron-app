@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/routing/app_router.dart';
 import '../../core/theme/theme_engine_provider.dart';
@@ -542,16 +543,32 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                         ),
                       ),
                     ),
-                    // Show event shortcut if linked
+                    // ── Shortcut → open the linked event in Calendar screen
                     if (existingNote?.eventId != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Icon(Icons.event_outlined, size: 14, color: palette.primary.withValues(alpha: 0.7)),
-                            const SizedBox(width: 6),
-                            Text('Linked to an event', style: TextStyle(color: palette.primary.withValues(alpha: 0.7), fontSize: 12)),
-                          ],
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).pop(); // close note dialog
+                            context.go('/calendar');     // jump to calendar tab
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: palette.primary.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.event_outlined, size: 14, color: palette.primary),
+                                const SizedBox(width: 6),
+                                Text('Open in Calendar', style: TextStyle(color: palette.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                                const SizedBox(width: 4),
+                                Icon(Icons.open_in_new, size: 11, color: palette.primary.withValues(alpha: 0.7)),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     const SizedBox(height: 8),

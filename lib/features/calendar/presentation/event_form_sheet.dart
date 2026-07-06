@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/settings/shared_preferences_provider.dart';
 import '../../../core/theme/theme_engine_provider.dart';
@@ -13,6 +14,7 @@ import '../../../data/local/database_provider.dart';
 import '../../alarms/domain/alarm_preset.dart';
 import '../../alarms/domain/reminder_offset.dart';
 import '../../notes/data/notes_repository.dart';
+import '../../notes/application/notes_providers.dart';
 import '../../tags/presentation/tag_autocomplete_field.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_event.dart';
@@ -149,6 +151,10 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
   bool _notesPreviewMode = false;
   RecurrenceConfig _recurrence = const RecurrenceConfig();
 
+  /// The local Note linked to this event (null until loaded). Used to show
+  /// the "Open note →" shortcut and to update it on save.
+  Note? _linkedNote;
+
   // Attendees & conference
   final List<String> _attendees = [];
   bool _addVideoConference = false;
@@ -210,6 +216,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
     if (notes.isNotEmpty && mounted) {
       // The local Note has the full content (Google description may be truncated)
       final note = notes.first;
+      setState(() => _linkedNote = note);
       if (note.content.length > (_notesController.text.length)) {
         _notesController.text = note.content;
       }
@@ -567,7 +574,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                 Icon(Icons.notes_outlined, size: 16, color: palette.text.withValues(alpha: 0.4)),
                 const SizedBox(width: 6),
                 Text('Notes', style: TextStyle(color: palette.text.withValues(alpha: 0.5), fontSize: 12)),
-                // Show overflow indicator if text > Google limit
+                // Overflow indicator
                 if (_notesController.text.length > _kGoogleDescriptionLimit) ...[
                   const SizedBox(width: 6),
                   Tooltip(
@@ -583,6 +590,32 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                   ),
                 ],
                 const Spacer(),
+                // ── 2. Shortcut → open linked note in Notes screen ────────
+                if (_linkedNote != null)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.go('/notes');
+                      // Set the current folder to wherever the note lives
+                      // (handled by notes screen's own state on open)
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: palette.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.open_in_new, size: 11, color: palette.primary),
+                          const SizedBox(width: 4),
+                          Text('Open note', style: TextStyle(color: palette.primary, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
                 TextButton(
                   onPressed: () => setState(() => _notesPreviewMode = !_notesPreviewMode),
                   style: TextButton.styleFrom(

@@ -4,15 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/local/database.dart';
 import '../../../data/local/database_provider.dart';
 
-// Provider for all tags (used by autocomplete)
+/// Stream of all tags — consumed by the overlay (ConsumerWidget, so it has
+/// its own ref and is never affected by the parent widget's lifecycle).
 final allTagsProvider = StreamProvider<List<Tag>>((ref) {
   return ref.watch(appDatabaseProvider).select(ref.watch(appDatabaseProvider).tags).watch();
 });
 
-/// A text field that intercepts `#` to show a tag autocomplete overlay.
-/// When the user types `#`, a floating menu appears with filtered tags.
-/// Selecting a tag fires [onTagSelected] and inserts `#tagname` at the cursor.
-class TagAutocompleteField extends ConsumerStatefulWidget {
+/// A TextField that intercepts `#` to show a floating tag-autocomplete overlay.
+///
+/// Fix for "ref unsafe" crash: the overlay is a [ConsumerWidget] with its OWN
+/// Riverpod ref — it never borrows the parent's [WidgetRef], which becomes
+/// invalid once the field widget starts unmounting.
+class TagAutocompleteField extends StatefulWidget {
   const TagAutocompleteField({
     super.key,
     required this.controller,
@@ -33,76 +36,76 @@ class TagAutocompleteField extends ConsumerStatefulWidget {
   final ValueChanged<String>? onChanged;
 
   @override
-  ConsumerState<TagAutocompleteField> createState() => _TagAutocompleteFieldState();
+  State<TagAutocompleteField> createState() => _TagAutocompleteFieldState();
 }
 
-class _TagAutocompleteFieldState extends ConsumerState<TagAutocompleteField> {
+class _TagAutocompleteFieldState extends State<TagAutocompleteField> {
   final _focusNode = FocusNode();
   final _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
-  String _tagQuery = '';
-  bool _showOverlay = false;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onTextChanged);
-    _focusNode.addListener(() {
-      if (!_focusNode.hasFocus) _hideOverlay();
-    });
+    _focusNode.addListener(_onFocusChanged);
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChanged);
     _focusNode.dispose();
-    _hideOverlay();
+    // Remove without setState — the widget is being torn down.
+    _overlayEntry?.remove();
+    _overlayEntry?.dispose();
+    _overlayEntry = null;
     super.dispose();
   }
 
+  void _onFocusChanged() {
+    if (!_focusNode.hasFocus) _hideOverlay();
+  }
+
   void _onTextChanged() {
+    if (!mounted) return;
     final text = widget.controller.text;
     final selection = widget.controller.selection;
     if (!selection.isValid) return;
 
     final cursor = selection.baseOffset.clamp(0, text.length);
     final before = text.substring(0, cursor);
-
-    // Look for # that isn't preceded by a word character
     final hashIndex = before.lastIndexOf('#');
-    if (hashIndex == -1) {
-      _hideOverlay();
-      return;
-    }
 
-    // Check that nothing between # and cursor has a space (i.e. we're still in a tag token)
+    if (hashIndex == -1) { _hideOverlay(); return; }
+
     final afterHash = before.substring(hashIndex + 1);
-    if (afterHash.contains(' ') || afterHash.contains('\n')) {
-      _hideOverlay();
-      return;
-    }
+    // If there's a space after #, we're no longer in a tag token.
+    if (afterHash.contains(' ') || afterHash.contains('\n')) { _hideOverlay(); return; }
 
-    setState(() {
-      _tagQuery = afterHash.toLowerCase();
-      _showOverlay = true;
-    });
-    _showOverlayMenu();
+    _showOverlayMenu(afterHash.toLowerCase());
     widget.onChanged?.call(text);
   }
 
-  void _showOverlayMenu() {
-    _hideOverlay(removeEntry: false);
-    final overlay = Overlay.of(context);
-    _overlayEntry = OverlayEntry(builder: (_) => _TagOverlay(
-      link: _layerLink,
-      query: _tagQuery,
-      ref: ref,
-      onTagSelected: (tag) {
-        _insertTag(tag);
-        _hideOverlay();
-      },
-    ));
-    overlay.insert(_overlayEntry!);
+  void _showOverlayMenu(String query) {
+    // Rebuild the overlay entry each time the query changes so the
+    // ConsumerWidget inside re-renders with the new filter string.
+    _overlayEntry?.remove();
+    _overlayEntry?.dispose();
+
+    _overlayEntry = OverlayEntry(
+      builder: (_) => _TagOverlayPortal(
+        link: _layerLink,
+        query: query,
+        onTagSelected: (tag) {
+          _insertTag(tag);
+          _hideOverlay();
+        },
+        onDismiss: _hideOverlay,
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
   }
 
   void _insertTag(Tag tag) {
@@ -121,12 +124,10 @@ class _TagAutocompleteFieldState extends ConsumerState<TagAutocompleteField> {
     widget.onTagSelected?.call(tag);
   }
 
-  void _hideOverlay({bool removeEntry = true}) {
-    if (removeEntry) {
-      _overlayEntry?.remove();
-      _overlayEntry = null;
-    }
-    if (mounted) setState(() => _showOverlay = false);
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry?.dispose();
+    _overlayEntry = null;
   }
 
   @override
@@ -140,30 +141,43 @@ class _TagAutocompleteFieldState extends ConsumerState<TagAutocompleteField> {
         style: widget.style,
         textCapitalization: widget.textCapitalization,
         decoration: widget.decoration,
-        onChanged: (v) {
-          // onTextChanged listener handles the tag logic
-          widget.onChanged?.call(v);
-        },
+        onChanged: widget.onChanged,
       ),
     );
   }
 }
 
-class _TagOverlay extends StatelessWidget {
-  const _TagOverlay({
+// ─────────────────────────────────────────────────────────────────────────────
+// Overlay portal — a ConsumerWidget with its own Riverpod ref.
+// This is the key fix: it NEVER borrows a ref from the parent widget.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TagOverlayPortal extends ConsumerWidget {
+  const _TagOverlayPortal({
     required this.link,
     required this.query,
-    required this.ref,
     required this.onTagSelected,
+    required this.onDismiss,
   });
 
   final LayerLink link;
   final String query;
-  final WidgetRef ref;
   final ValueChanged<Tag> onTagSelected;
+  final VoidCallback onDismiss;
+
+  Color _parseColor(String hex) {
+    try {
+      final c = hex.replaceAll('#', '');
+      return Color(int.parse('FF$c', radix: 16));
+    } catch (_) {
+      return const Color(0xFFD89B3C);
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Safe: this ConsumerWidget has its own ref that lives until THIS
+    // widget is removed from the overlay, not tied to the field's lifecycle.
     final tagsAsync = ref.watch(allTagsProvider);
     final tags = tagsAsync.value ?? const [];
     final filtered = query.isEmpty
@@ -172,7 +186,6 @@ class _TagOverlay extends StatelessWidget {
 
     if (filtered.isEmpty) return const SizedBox.shrink();
 
-    // Get theme colors from context if available
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF1E1E2A) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -182,7 +195,7 @@ class _TagOverlay extends StatelessWidget {
       child: CompositedTransformFollower(
         link: link,
         showWhenUnlinked: false,
-        offset: const Offset(0, 36),
+        offset: const Offset(0, 38),
         child: Material(
           color: Colors.transparent,
           child: Container(
@@ -218,7 +231,10 @@ class _TagOverlay extends StatelessWidget {
                           CircleAvatar(radius: 6, backgroundColor: color),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text('#${tag.name}', style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 14)),
+                            child: Text(
+                              '#${tag.name}',
+                              style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 14),
+                            ),
                           ),
                           if (tag.defaultAlarmPreset != null)
                             Icon(Icons.notifications_outlined, size: 12, color: textColor.withValues(alpha: 0.4)),
@@ -233,14 +249,5 @@ class _TagOverlay extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color _parseColor(String hex) {
-    try {
-      final c = hex.replaceAll('#', '');
-      return Color(int.parse('FF$c', radix: 16));
-    } catch (_) {
-      return const Color(0xFFD89B3C);
-    }
   }
 }
