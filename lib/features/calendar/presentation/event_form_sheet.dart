@@ -590,15 +590,10 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                   ),
                 ],
                 const Spacer(),
-                // ── 2. Shortcut → open linked note in Notes screen ────────
+                // ── 2. Shortcut → open specific linked note inline ──────
                 if (_linkedNote != null)
                   GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      context.go('/notes');
-                      // Set the current folder to wherever the note lives
-                      // (handled by notes screen's own state on open)
-                    },
+                    onTap: () => _openLinkedNote(_linkedNote!),
                     child: Container(
                       margin: const EdgeInsets.only(right: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -911,10 +906,145 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
     }
   }
 
+  // ── Open linked note inline ───────────────────────────────────────────────
+
+  /// Opens a full note edit dialog overlaid on the event form, so the user can
+  /// read/edit the specific linked note without losing their place in the event.
+  void _openLinkedNote(Note note) {
+    final palette = ref.read(themeEngineProvider);
+    final titleCtrl = TextEditingController(text: note.title);
+    final contentCtrl = TextEditingController(text: note.content);
+
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black45,
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (ctx, anim1, anim2) => Center(
+        child: Container(
+          width: (MediaQuery.of(ctx).size.width * 0.9).clamp(300.0, 560.0),
+          height: (MediaQuery.of(ctx).size.height * 0.75).clamp(350.0, 560.0),
+          margin: const EdgeInsets.symmetric(vertical: 24),
+          decoration: BoxDecoration(
+            color: palette.surface.withValues(alpha: 0.97),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: palette.text.withValues(alpha: 0.12)),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 40, offset: const Offset(0, 20))],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: titleCtrl,
+                          style: TextStyle(color: palette.text, fontWeight: FontWeight.bold, fontSize: 20),
+                          decoration: InputDecoration(
+                            hintText: 'Note title',
+                            hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.4), fontSize: 20, fontWeight: FontWeight.bold),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: palette.text.withValues(alpha: 0.5)),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  Divider(color: palette.text.withValues(alpha: 0.1)),
+                  Expanded(
+                    child: TextField(
+                      controller: contentCtrl,
+                      maxLines: null,
+                      expands: true,
+                      style: TextStyle(color: palette.text, fontSize: 14, height: 1.5),
+                      decoration: InputDecoration(
+                        hintText: 'Write your note here...',
+                        hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.35), fontSize: 14),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Event backlink chip
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: palette.primary.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.event_outlined, size: 13, color: palette.primary),
+                            const SizedBox(width: 5),
+                            Text(
+                              widget.existingEvent?.title ?? 'Linked event',
+                              style: TextStyle(color: palette.primary, fontSize: 12, fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: Text('Cancel', style: TextStyle(color: palette.text.withValues(alpha: 0.6))),
+                      ),
+                      const SizedBox(width: 6),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: palette.primary,
+                          foregroundColor: palette.background,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          await ref.read(notesRepositoryProvider).updateNote(NotesCompanion(
+                            id: Value(note.id),
+                            title: Value(titleCtrl.text.trim().isEmpty ? '(Untitled)' : titleCtrl.text.trim()),
+                            content: Value(contentCtrl.text.trim()),
+                            eventId: Value(note.eventId),
+                            linkedCalendarId: Value(note.linkedCalendarId),
+                            updatedAt: Value(DateTime.now()),
+                          ));
+                          // Sync the notes controller in the event form too
+                          _notesController.text = contentCtrl.text.trim();
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                        },
+                        child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      transitionBuilder: (ctx, anim, _, child) => ScaleTransition(
+        scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+        child: FadeTransition(opacity: anim, child: child),
+      ),
+    );
+  }
+
   // ── Save ──────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
+
     final repo = ref.read(calendarRepositoryProvider);
     final fullNotes = _notesController.text.trim();
     final location = _locationController.text.trim();
@@ -963,21 +1093,25 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
       }
 
       // Save/update local note with FULL content (including overflow beyond Google limit)
+      final savedCalendarId = event.calendarId.isEmpty ? 'primary' : event.calendarId;
       if (fullNotes.isNotEmpty && savedId.isNotEmpty) {
         final notesRepo = ref.read(notesRepositoryProvider);
         final existing = await notesRepo.watchNotesByEventId(savedId).first;
+        final eventTitle = _titleController.text.trim().isEmpty ? 'Event note' : _titleController.text.trim();
         if (existing.isEmpty) {
           await notesRepo.createNote(NotesCompanion.insert(
-            title: _titleController.text.trim().isEmpty ? 'Event note' : _titleController.text.trim(),
+            title: eventTitle,
             content: fullNotes,
             eventId: Value(savedId),
+            linkedCalendarId: Value(savedCalendarId),
           ));
         } else {
           await notesRepo.updateNote(NotesCompanion(
             id: Value(existing.first.id),
-            title: Value(_titleController.text.trim().isEmpty ? 'Event note' : _titleController.text.trim()),
+            title: Value(eventTitle),
             content: Value(fullNotes),
             eventId: Value(savedId),
+            linkedCalendarId: Value(savedCalendarId),
             updatedAt: Value(DateTime.now()),
           ));
         }

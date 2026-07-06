@@ -26,7 +26,7 @@ class AppDatabase extends _$AppDatabase {
   /// changes in a later build step (e.g. when Habits gets typed frequency
   /// columns instead of the opaque JSON blob in the skeleton).
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -88,6 +88,11 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(tags, tags.defaultAlarmPreset);
             await m.addColumn(tags, tags.defaultColorHex);
             await m.addColumn(tags, tags.defaultNoteFolderId);
+          }
+          if (from < 10) {
+            // Bidirectional note↔event: store calendarId so we can re-fetch the
+            // specific event without guessing which calendar it belongs to.
+            await m.addColumn(notes, notes.linkedCalendarId);
           }
         },
       );

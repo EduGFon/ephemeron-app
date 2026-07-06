@@ -226,6 +226,18 @@ class CalendarRepository {
     await _alarmScheduler.cancelByIds(allPossibleIds);
   }
 
+  /// Fetch a single event by id. Tries [calendarId] first; if that
+  /// throws (NotConnected or 404), returns null.
+  Future<CalendarEvent?> getEvent(String calendarId, String eventId) async {
+    try {
+      final api = await _api();
+      final gcalEvent = await api.events.get(calendarId, eventId);
+      return CalendarEvent.fromGoogle(gcalEvent, calendarId: calendarId);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _scheduleEventAlarms(List<CalendarEvent> events) async {
     for (final event in events) {
       if (event.reminderMinutes.isEmpty) continue;

@@ -8,6 +8,8 @@ import '../../core/routing/app_router.dart';
 import '../../core/theme/theme_engine_provider.dart';
 import '../../core/theme/theme_palettes.dart';
 import '../../data/local/database.dart';
+import '../../features/calendar/application/calendar_providers.dart';
+import '../../features/calendar/presentation/event_form_sheet.dart';
 import '../../features/notes/application/notes_providers.dart';
 import '../../features/notes/data/notes_repository.dart';
 
@@ -543,32 +545,16 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                         ),
                       ),
                     ),
-                    // ── Shortcut → open the linked event in Calendar screen
+                    // ── Shortcut → fetch + open the SPECIFIC linked event
                     if (existingNote?.eventId != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).pop(); // close note dialog
-                            context.go('/calendar');     // jump to calendar tab
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: palette.primary.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.event_outlined, size: 14, color: palette.primary),
-                                const SizedBox(width: 6),
-                                Text('Open in Calendar', style: TextStyle(color: palette.primary, fontSize: 12, fontWeight: FontWeight.w600)),
-                                const SizedBox(width: 4),
-                                Icon(Icons.open_in_new, size: 11, color: palette.primary.withValues(alpha: 0.7)),
-                              ],
-                            ),
-                          ),
+                        child: _EventShortcutChip(
+                          eventId: existingNote!.eventId!,
+                          calendarId: existingNote.linkedCalendarId ?? 'primary',
+                          palette: palette,
+                          ref: ref,
+                          onDismiss: () => Navigator.of(context).pop(),
                         ),
                       ),
                     const SizedBox(height: 8),
@@ -745,6 +731,92 @@ class _NoteCardContent extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shortcut chip: fetches the specific Google event and opens its form sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EventShortcutChip extends StatefulWidget {
+  const _EventShortcutChip({
+    required this.eventId,
+    required this.calendarId,
+    required this.palette,
+    required this.ref,
+    required this.onDismiss,
+  });
+
+  final String eventId;
+  final String calendarId;
+  final AppPalette palette;
+  final WidgetRef ref;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_EventShortcutChip> createState() => _EventShortcutChipState();
+}
+
+class _EventShortcutChipState extends State<_EventShortcutChip> {
+  bool _loading = false;
+
+  Future<void> _openEvent() async {
+    setState(() => _loading = true);
+    try {
+      final repo = widget.ref.read(calendarRepositoryProvider);
+      final event = await repo.getEvent(widget.calendarId, widget.eventId);
+      if (!mounted) return;
+      if (event == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Event not found — it may have been deleted or you\'re not signed in.')),
+        );
+        return;
+      }
+      // Dismiss note dialog first, then open the event form
+      widget.onDismiss();
+      if (!mounted) return;
+      await showEventFormSheet(context, initialDay: event.start, existingEvent: event);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.palette;
+    return GestureDetector(
+      onTap: _loading ? null : _openEvent,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: p.primary.withValues(alpha: _loading ? 0.06 : 0.10),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_loading)
+              SizedBox(
+                width: 13,
+                height: 13,
+                child: CircularProgressIndicator(strokeWidth: 1.5, color: p.primary),
+              )
+            else
+              Icon(Icons.event_outlined, size: 14, color: p.primary),
+            const SizedBox(width: 6),
+            Text(
+              _loading ? 'Loading event...' : 'Open in Calendar',
+              style: TextStyle(color: p.primary, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            if (!_loading) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.open_in_new, size: 11, color: p.primary.withValues(alpha: 0.7)),
+            ],
+          ],
+        ),
       ),
     );
   }

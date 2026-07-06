@@ -228,6 +228,7 @@ class Notes extends Table {
   TextColumn get content => text()();
   TextColumn get folderId => text().nullable().references(NoteFolders, #id)();
   TextColumn get eventId => text().nullable()();
+  TextColumn get linkedCalendarId => text().nullable()();
   DateTimeColumn get createdAt =>
       dateTime().clientDefault(() => DateTime.now())();
   DateTimeColumn get updatedAt =>
