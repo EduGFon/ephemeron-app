@@ -15,6 +15,8 @@ part 'database.g.dart';
     HabitLogs,
     FocusSessions,
     Countdowns,
+    NoteFolders,
+    Notes,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -24,7 +26,7 @@ class AppDatabase extends _$AppDatabase {
   /// changes in a later build step (e.g. when Habits gets typed frequency
   /// columns instead of the opaque JSON blob in the skeleton).
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -73,6 +75,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 6) {
             // Step 8: Countdown alert bookkeeping.
             await m.addColumn(countdowns, countdowns.scheduledAlarmIds);
+          }
+          if (from < 7) {
+            await m.createTable(noteFolders);
+            await m.createTable(notes);
           }
         },
       );

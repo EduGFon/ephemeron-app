@@ -206,3 +206,28 @@ class Countdowns extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+class NoteFolders extends Table {
+  TextColumn get id => text().clientDefault(() => tableIdGenerator.v4())();
+  TextColumn get name => text()();
+  TextColumn get parentFolderId => text().nullable().references(NoteFolders, #id)();
+  DateTimeColumn get createdAt =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Notes extends Table {
+  TextColumn get id => text().clientDefault(() => tableIdGenerator.v4())();
+  TextColumn get title => text()();
+  TextColumn get content => text()();
+  TextColumn get folderId => text().nullable().references(NoteFolders, #id)();
+  DateTimeColumn get createdAt =>
+      dateTime().clientDefault(() => DateTime.now())();
+  DateTimeColumn get updatedAt =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
