@@ -17,6 +17,7 @@ part 'database.g.dart';
     Countdowns,
     NoteFolders,
     Notes,
+    CachedCalendarEvents,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -26,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   /// changes in a later build step (e.g. when Habits gets typed frequency
   /// columns instead of the opaque JSON blob in the skeleton).
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -93,6 +94,9 @@ class AppDatabase extends _$AppDatabase {
             // Bidirectional note↔event: store calendarId so we can re-fetch the
             // specific event without guessing which calendar it belongs to.
             await m.addColumn(notes, notes.linkedCalendarId);
+          }
+          if (from < 11) {
+            await m.createTable(cachedCalendarEvents);
           }
         },
       );

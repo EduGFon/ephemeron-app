@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:googleapis/calendar/v3.dart' as gcal;
 import 'package:http/http.dart' as http;
@@ -53,6 +54,65 @@ class CalendarRepository {
     return gcal.CalendarApi(client);
   }
 
+  Future<void> _cacheEvents(List<CalendarEvent> events, {String? calendarId}) async {
+    for (final e in events) {
+      final calId = calendarId ?? e.calendarId;
+      await _db.into(_db.cachedCalendarEvents).insert(
+        CachedCalendarEventsCompanion.insert(
+          id: e.id,
+          calendarId: calId,
+          title: e.title,
+          description: Value(e.description),
+          location: Value(e.location),
+          start: e.start,
+          end: e.end,
+          isAllDay: Value(e.isAllDay),
+          colorId: Value(e.colorId),
+          reminderMinutes: Value(jsonEncode(e.reminderMinutes)),
+          attendees: Value(jsonEncode(e.attendees)),
+          hasVideoConference: Value(e.hasVideoConference),
+          videoConferenceLink: Value(e.videoConferenceLink),
+          selfResponseStatus: Value(e.selfResponseStatus.name),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+    }
+  }
+
+  Future<List<CalendarEvent>> _loadCachedEvents(DateTime rangeStart, DateTime rangeEnd) async {
+    final rows = await (_db.select(_db.cachedCalendarEvents)
+          ..where((e) =>
+              e.start.isSmallerOrEqualValue(rangeEnd) &
+              e.end.isBiggerOrEqualValue(rangeStart)))
+        .get();
+
+    return rows.map((row) {
+      final reminderList = row.reminderMinutes != null
+          ? (jsonDecode(row.reminderMinutes!) as List<dynamic>).cast<int>().toList()
+          : const <int>[];
+      final attendeeList = row.attendees != null
+          ? (jsonDecode(row.attendees!) as List<dynamic>).cast<String>().toList()
+          : const <String>[];
+
+      return CalendarEvent(
+        id: row.id,
+        calendarId: row.calendarId,
+        title: row.title,
+        description: row.description,
+        location: row.location,
+        start: row.start,
+        end: row.end,
+        isAllDay: row.isAllDay,
+        colorId: row.colorId,
+        reminderMinutes: reminderList,
+        attendees: attendeeList,
+        hasVideoConference: row.hasVideoConference,
+        videoConferenceLink: row.videoConferenceLink,
+        selfResponseStatus: RsvpStatus.values.byName(row.selfResponseStatus),
+      );
+    }).toList();
+  }
+
   Future<List<CalendarEvent>> listEvents({
     required DateTime rangeStart,
     required DateTime rangeEnd,
@@ -90,9 +150,29 @@ class CalendarRepository {
       ];
     }
 
+    // Try loading from local cache first
+    final cached = await _loadCachedEvents(rangeStart, rangeEnd);
+    if (cached.isNotEmpty) {
+      cached.sort((a, b) => a.start.compareTo(b.start));
+      await _scheduleEventAlarms(cached);
+      return cached;
+    }
+
+    // If cache is empty, refresh from remote
+    return refreshEventsFromRemote(rangeStart: rangeStart, rangeEnd: rangeEnd);
+  }
+
+  Future<List<CalendarEvent>> refreshEventsFromRemote({
+    required DateTime rangeStart,
+    required DateTime rangeEnd,
+  }) async {
+    if (_authRepository.currentAccount == null) return const [];
+
     final api = await _api();
     final calendarList = await api.calendarList.list();
     final calendars = calendarList.items ?? [];
+
+    List<CalendarEvent> allEvents = [];
 
     if (calendars.isEmpty) {
       final result = await api.events.list(
@@ -103,33 +183,35 @@ class CalendarRepository {
         orderBy: 'startTime',
       );
       final events = (result.items ?? []).map((e) => CalendarEvent.fromGoogle(e, calendarId: 'primary')).toList();
-      await _scheduleEventAlarms(events);
-      return events;
+      allEvents.addAll(events);
+      await _cacheEvents(events, calendarId: 'primary');
+    } else {
+      final futures = calendars.map((cal) async {
+        final calId = cal.id;
+        if (calId == null) return <CalendarEvent>[];
+        try {
+          final result = await api.events.list(
+            calId,
+            timeMin: rangeStart.toUtc(),
+            timeMax: rangeEnd.toUtc(),
+            singleEvents: true,
+            orderBy: 'startTime',
+          );
+          final events = (result.items ?? []).map((e) => CalendarEvent.fromGoogle(e, calendarId: calId)).toList();
+          await _cacheEvents(events, calendarId: calId);
+          return events;
+        } catch (_) {
+          return <CalendarEvent>[];
+        }
+      });
+
+      final results = await Future.wait(futures);
+      allEvents.addAll(results.expand((e) => e));
     }
 
-    final futures = calendars.map((cal) async {
-      final calId = cal.id;
-      if (calId == null) return <CalendarEvent>[];
-      try {
-        final result = await api.events.list(
-          calId,
-          timeMin: rangeStart.toUtc(),
-          timeMax: rangeEnd.toUtc(),
-          singleEvents: true,
-          orderBy: 'startTime',
-        );
-        return (result.items ?? []).map((e) => CalendarEvent.fromGoogle(e, calendarId: calId)).toList();
-      } catch (_) {
-        return <CalendarEvent>[];
-      }
-    });
-
-    final results = await Future.wait(futures);
-    final events = results.expand((e) => e).toList();
-    events.sort((a, b) => a.start.compareTo(b.start));
-
-    await _scheduleEventAlarms(events);
-    return events;
+    allEvents.sort((a, b) => a.start.compareTo(b.start));
+    await _scheduleEventAlarms(allEvents);
+    return allEvents;
   }
 
   Future<CalendarEvent> createEvent(
@@ -150,6 +232,7 @@ class CalendarRepository {
     if (preset != null) {
       await sharedPrefs.setString('event_alarm_preset_${result.id}', preset.name);
     }
+    await _cacheEvents([result]);
     await _scheduleEventAlarms([result]);
     return result;
   }
@@ -172,6 +255,7 @@ class CalendarRepository {
       sendUpdates: sendInvites ? 'all' : 'none',
     );
     final result = CalendarEvent.fromGoogle(updated, calendarId: event.calendarId);
+    await _cacheEvents([result]);
     await _scheduleEventAlarms([result]);
     return result;
   }
@@ -214,6 +298,7 @@ class CalendarRepository {
   Future<void> deleteEvent(String eventId, {String calendarId = 'primary'}) async {
     final api = await _api();
     await api.events.delete(calendarId, eventId);
+    await (_db.delete(_db.cachedCalendarEvents)..where((e) => e.id.equals(eventId) & e.calendarId.equals(calendarId))).go();
     // Cancel whatever alarms were computed for this event last time it
     // was listed — safe even if none were actually scheduled, since
     // AlarmScheduler.cancelByIds no-ops on IDs that aren't pending.

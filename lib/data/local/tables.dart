@@ -237,3 +237,24 @@ class Notes extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+class CachedCalendarEvents extends Table {
+  TextColumn get id => text()();
+  TextColumn get calendarId => text()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get location => text().nullable()();
+  DateTimeColumn get start => dateTime()();
+  DateTimeColumn get end => dateTime()();
+  BoolColumn get isAllDay => boolean().withDefault(const Constant(false))();
+  TextColumn get colorId => text().nullable()();
+  TextColumn get reminderMinutes => text().nullable()(); // JSON list of minutes
+  TextColumn get attendees => text().nullable()(); // JSON list of emails
+  BoolColumn get hasVideoConference => boolean().withDefault(const Constant(false))();
+  TextColumn get videoConferenceLink => text().nullable()();
+  TextColumn get selfResponseStatus => text().withDefault(const Constant('needsAction'))();
+
+  @override
+  Set<Column> get primaryKey => {id, calendarId};
+}
+

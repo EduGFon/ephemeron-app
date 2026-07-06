@@ -14,6 +14,8 @@ class AppSettings {
     this.osBatterySaverActive = false,
     this.usePillNavigation = true,
     this.calendarStartDay = 7, // Sunday by default (1=Mon..7=Sun)
+    this.autoSync = true,
+    this.syncIntervalMinutes = 30,
   });
 
   final bool reducedMotion;
@@ -33,6 +35,9 @@ class AppSettings {
   /// Uses ISO weekday values: 1=Monday ... 7=Sunday.
   final int calendarStartDay;
 
+  final bool autoSync;
+  final int syncIntervalMinutes;
+
   /// Effective "should we skip decorative animation" flag: the user's
   /// explicit toggle, their manual power-saving override, OR the OS
   /// actually reporting battery saver is on. Every animated widget in
@@ -45,6 +50,8 @@ class AppSettings {
     bool? osBatterySaverActive,
     bool? usePillNavigation,
     int? calendarStartDay,
+    bool? autoSync,
+    int? syncIntervalMinutes,
   }) {
     return AppSettings(
       reducedMotion: reducedMotion ?? this.reducedMotion,
@@ -52,6 +59,8 @@ class AppSettings {
       osBatterySaverActive: osBatterySaverActive ?? this.osBatterySaverActive,
       usePillNavigation: usePillNavigation ?? this.usePillNavigation,
       calendarStartDay: calendarStartDay ?? this.calendarStartDay,
+      autoSync: autoSync ?? this.autoSync,
+      syncIntervalMinutes: syncIntervalMinutes ?? this.syncIntervalMinutes,
     );
   }
 }
@@ -61,6 +70,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   static const _powerSavingKey = 'settings.powerSavingMode';
   static const _usePillNavigationKey = 'settings.usePillNavigation';
   static const _calendarStartDayKey = 'settings.calendarStartDay';
+  static const _autoSyncKey = 'settings.autoSync';
+  static const _syncIntervalMinutesKey = 'settings.syncIntervalMinutes';
   final _battery = Battery();
 
   @override
@@ -79,6 +90,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       powerSavingMode: prefs.getBool(_powerSavingKey) ?? false,
       usePillNavigation: prefs.getBool(_usePillNavigationKey) ?? true,
       calendarStartDay: prefs.getInt(_calendarStartDayKey) ?? 7,
+      autoSync: prefs.getBool(_autoSyncKey) ?? true,
+      syncIntervalMinutes: prefs.getInt(_syncIntervalMinutesKey) ?? 30,
     );
   }
 
@@ -119,6 +132,18 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(calendarStartDay: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_calendarStartDayKey, value);
+  }
+
+  Future<void> setAutoSync(bool value) async {
+    state = state.copyWith(autoSync: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoSyncKey, value);
+  }
+
+  Future<void> setSyncIntervalMinutes(int value) async {
+    state = state.copyWith(syncIntervalMinutes: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_syncIntervalMinutesKey, value);
   }
 }
 

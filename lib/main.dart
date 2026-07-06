@@ -14,6 +14,7 @@ import 'features/auth/google/google_auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'features/countdown/application/countdown_providers.dart';
 import 'features/habits/application/habit_providers.dart';
+import 'features/sync/application/sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,6 +48,8 @@ class EphemeronApp extends ConsumerWidget {
     // Initialize Google Auth — this silently restores a previous session
     // so Calendar/Tasks sync work immediately without visiting auth screen.
     ref.watch(googleAuthInitProvider);
+    // Initialize sync service (kick off background periodic timer based on settings)
+    ref.watch(syncServiceProvider);
 
     final palette = ref.watch(themeEngineProvider);
     final isReducedMotion = settings.shouldReduceMotion;

@@ -103,4 +103,15 @@ class GoogleTasksMirror {
       // this succeeding.
     }
   }
+
+  /// Lists all tasks from the default task list.
+  Future<List<gtasks.Task>> listRemoteTasks() async {
+    try {
+      final api = await _api();
+      final result = await api.tasks.list(_defaultTaskList);
+      return result.items ?? [];
+    } catch (_) {
+      return [];
+    }
+  }
 }

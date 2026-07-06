@@ -520,6 +520,56 @@ class TaskRepository {
 
   List<int> _decodeAlarmIds(String? raw) {
     if (raw == null || raw.isEmpty) return const [];
-    return (jsonDecode(raw) as List<dynamic>).cast<int>();
+    return (jsonDecode(raw) as List<dynamic>).cast<int>().toList();
+  }
+
+  /// Syncs tasks from Google Tasks API into local Drift database.
+  Future<void> syncTasksWithRemote() async {
+    final mirror = _googleTasksMirror;
+    if (mirror == null) return;
+
+    final remoteTasks = await mirror.listRemoteTasks();
+    if (remoteTasks.isEmpty) return;
+
+    final inbox = await _inboxList();
+
+    for (final remote in remoteTasks) {
+      if (remote.id == null) continue;
+      final existing = await (_db.select(_db.tasks)..where((t) => t.googleTaskId.equals(remote.id!))).getSingleOrNull();
+
+      final title = remote.title ?? '(No Title)';
+      final description = remote.notes;
+      final isCompleted = remote.status == 'completed';
+      final dueDate = remote.due != null ? DateTime.tryParse(remote.due!) : null;
+
+      if (existing == null) {
+        // Create locally
+        final id = _uuid.v4();
+        await _db.into(_db.tasks).insert(
+          TasksCompanion.insert(
+            id: Value(id),
+            googleTaskId: Value(remote.id),
+            listId: inbox.id,
+            title: title,
+            description: Value(description),
+            isCompleted: Value(isCompleted),
+            dueDate: Value(dueDate),
+            createdAt: Value(DateTime.now()),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      } else {
+        // Update locally
+        await (_db.update(_db.tasks)..where((t) => t.id.equals(existing.id))).write(
+          TasksCompanion(
+            title: Value(title),
+            description: Value(description),
+            isCompleted: Value(isCompleted),
+            dueDate: Value(dueDate),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+    }
   }
 }
