@@ -1,11 +1,17 @@
+import 'dart:async' show unawaited;
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/settings/app_settings_provider.dart';
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
 import '../../../presentation/shell/pinned_sections_provider.dart';
+import '../../auth/google/google_auth_provider.dart';
+import '../../auth/google/google_auth_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -19,6 +25,10 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          const _SectionHeader('Google Account'),
+          const _GoogleAccountTile(),
+          const _ConfigureGoogleCredentialsTile(),
+          const Divider(),
           const _SectionHeader('Appearance (Premium Palettes)'),
           Consumer(
             builder: (context, ref, child) {
@@ -158,6 +168,166 @@ class SettingsScreen extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+class _GoogleAccountTile extends ConsumerWidget {
+  const _GoogleAccountTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accountAsync = ref.watch(googleAccountProvider);
+
+    return accountAsync.when(
+      data: (account) {
+        if (account == null) {
+          return ListTile(
+            leading: const Icon(Icons.account_circle_outlined, size: 40),
+            title: const Text('Not connected'),
+            subtitle: const Text('Sign in to sync Calendar & Tasks'),
+            trailing: FilledButton(
+              onPressed: () => _signIn(context, ref),
+              child: const Text('Connect'),
+            ),
+          );
+        }
+        return ListTile(
+          leading: account.photoUrl != null
+              ? CircleAvatar(backgroundImage: NetworkImage(account.photoUrl!))
+              : const Icon(Icons.account_circle, size: 40),
+          title: Text(account.displayName ?? account.email),
+          subtitle: Text(account.email),
+          trailing: TextButton(
+            onPressed: () => ref.read(googleAuthRepositoryProvider).signOut(),
+            child: const Text('Disconnect'),
+          ),
+        );
+      },
+      loading: () => const ListTile(
+        leading: SizedBox(
+          width: 40,
+          height: 40,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        title: Text('Checking connection...'),
+      ),
+      error: (error, _) => ListTile(
+        leading: const Icon(Icons.error_outline, size: 40),
+        title: const Text('Could not check Google status'),
+        subtitle: Text('$error'),
+        trailing: FilledButton(
+          onPressed: () => _signIn(context, ref),
+          child: const Text('Retry'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _signIn(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(googleAuthRepositoryProvider).signIn();
+      // Pre-authorize Calendar + Tasks scopes together
+      try {
+        await ref.read(googleAuthRepositoryProvider).getAccessToken(const [
+          AppConfig.googleCalendarScope,
+          AppConfig.googleTasksScope,
+        ]);
+      } on Exception {
+        // Swallowed — features will re-prompt individually if needed.
+      }
+    } on GoogleAuthCancelledException {
+      // User backed out — normal, not an error.
+    } on GoogleAuthException catch (e) {
+      if (context.mounted) {
+        if (e.message.contains('Client ID is not configured')) {
+          unawaited(_ConfigureGoogleCredentialsTile._showCredentialsDialog(context));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
+          );
+        }
+      }
+    }
+  }
+}
+
+class _ConfigureGoogleCredentialsTile extends ConsumerWidget {
+  const _ConfigureGoogleCredentialsTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (kIsWeb || !(Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+      return const SizedBox.shrink();
+    }
+
+    return ListTile(
+      leading: const Icon(Icons.settings_applications_outlined),
+      title: const Text('Configure Custom Google Client ID'),
+      subtitle: const Text('Required for Linux/Desktop Calendar sync'),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: () => unawaited(_showCredentialsDialog(context)),
+    );
+  }
+
+  static Future<void> _showCredentialsDialog(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final idController = TextEditingController(text: prefs.getString('google.desktop.customClientId') ?? '');
+    final secretController = TextEditingController(text: prefs.getString('google.desktop.customClientSecret') ?? '');
+
+    if (!context.mounted) return;
+
+    unawaited(showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Google OAuth Credentials'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter your own Google OAuth Client ID and Secret for Desktop (type "Desktop application" in Google Cloud Console).',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: idController,
+              decoration: const InputDecoration(
+                labelText: 'Client ID',
+                hintText: 'xxxx.apps.googleusercontent.com',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: secretController,
+              decoration: const InputDecoration(
+                labelText: 'Client Secret (Optional)',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final id = idController.text.trim();
+              final secret = secretController.text.trim();
+              final prefs = await SharedPreferences.getInstance();
+              if (id.isEmpty) {
+                await prefs.remove('google.desktop.customClientId');
+                await prefs.remove('google.desktop.customClientSecret');
+              } else {
+                await prefs.setString('google.desktop.customClientId', id);
+                await prefs.setString('google.desktop.customClientSecret', secret);
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ));
   }
 }
 

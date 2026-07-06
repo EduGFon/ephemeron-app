@@ -10,6 +10,7 @@ import 'core/theme/theme_engine_provider.dart';
 import 'core/theme/premium_background.dart';
 import 'features/alarms/application/alarm_action_manager_provider.dart';
 import 'features/alarms/application/alarm_scheduler_provider.dart';
+import 'features/auth/google/google_auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'features/countdown/application/countdown_providers.dart';
 import 'features/habits/application/habit_providers.dart';
@@ -43,6 +44,9 @@ class EphemeronApp extends ConsumerWidget {
     ref.watch(alarmActionManagerProvider);
     // Listens to app lifecycle changes to refresh battery state
     ref.watch(powerSavingManagerProvider);
+    // Initialize Google Auth — this silently restores a previous session
+    // so Calendar/Tasks sync work immediately without visiting auth screen.
+    ref.watch(googleAuthInitProvider);
 
     final palette = ref.watch(themeEngineProvider);
     final isReducedMotion = settings.shouldReduceMotion;

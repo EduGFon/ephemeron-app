@@ -1,6 +1,8 @@
+import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/config/app_config.dart';
 import '../backend/backend_auth_provider.dart';
@@ -129,8 +131,75 @@ class _GoogleCalendarCard extends ConsumerWidget {
     } on GoogleAuthCancelledException {
       // User backed out — not an error, nothing to show.
     } on GoogleAuthException catch (e) {
-      if (context.mounted) _showError(context, e.message);
+      if (context.mounted) {
+        if (e.message.contains('Client ID is not configured')) {
+          unawaited(_showCredentialsDialog(context));
+        } else {
+          _showError(context, e.message);
+        }
+      }
     }
+  }
+
+  Future<void> _showCredentialsDialog(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final idController = TextEditingController(text: prefs.getString('google.desktop.customClientId') ?? '');
+    final secretController = TextEditingController(text: prefs.getString('google.desktop.customClientSecret') ?? '');
+
+    if (!context.mounted) return;
+
+    unawaited(showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Google OAuth Credentials'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter your own Google OAuth Client ID and Secret for Desktop (type "Desktop application" in Google Cloud Console).',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: idController,
+              decoration: const InputDecoration(
+                labelText: 'Client ID',
+                hintText: 'xxxx.apps.googleusercontent.com',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: secretController,
+              decoration: const InputDecoration(
+                labelText: 'Client Secret (Optional)',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final id = idController.text.trim();
+              final secret = secretController.text.trim();
+              final prefs = await SharedPreferences.getInstance();
+              if (id.isEmpty) {
+                await prefs.remove('google.desktop.customClientId');
+                await prefs.remove('google.desktop.customClientSecret');
+              } else {
+                await prefs.setString('google.desktop.customClientId', id);
+                await prefs.setString('google.desktop.customClientSecret', secret);
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ));
   }
 
   void _showError(BuildContext context, String message) {

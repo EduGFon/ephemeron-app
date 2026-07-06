@@ -1,11 +1,25 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'google_auth_repository.dart';
 import 'google_sign_in_auth_repository.dart';
+import 'desktop_google_auth_repository.dart';
 
 final googleAuthRepositoryProvider = Provider<GoogleAuthRepository>((ref) {
-  final repo = GoogleSignInAuthRepository();
-  ref.onDispose(repo.dispose);
+  final GoogleAuthRepository repo;
+  if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+    repo = DesktopGoogleAuthRepository();
+  } else {
+    repo = GoogleSignInAuthRepository();
+  }
+  ref.onDispose(() {
+    if (repo is GoogleSignInAuthRepository) {
+      repo.dispose();
+    } else if (repo is DesktopGoogleAuthRepository) {
+      repo.dispose();
+    }
+  });
   return repo;
 });
 

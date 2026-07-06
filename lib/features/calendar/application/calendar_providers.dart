@@ -19,6 +19,7 @@ final calendarRepositoryProvider = Provider<CalendarRepository>((ref) {
 /// months actually hit the same cache entry instead of refetching.
 final monthEventsProvider =
     FutureProvider.family<List<CalendarEvent>, DateTime>((ref, month) async {
+  ref.watch(googleAccountProvider); // Invalidate and reload when login state changes
   final repo = ref.watch(calendarRepositoryProvider);
   final start = DateTime(month.year, month.month, 1);
   final end = DateTime(month.year, month.month + 1, 1);
