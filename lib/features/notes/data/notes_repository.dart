@@ -15,6 +15,10 @@ class NotesRepository {
     return _db.select(_db.notes).watch();
   }
 
+  Stream<List<Note>> watchNotesByEventId(String eventId) {
+    return (_db.select(_db.notes)..where((n) => n.eventId.equals(eventId))).watch();
+  }
+
   Stream<List<NoteFolder>> watchAllFolders() {
     return _db.select(_db.noteFolders).watch();
   }
