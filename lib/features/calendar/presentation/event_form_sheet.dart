@@ -15,6 +15,7 @@ import '../../../data/local/database_provider.dart';
 import '../../alarms/domain/alarm_preset.dart';
 import '../../alarms/domain/reminder_offset.dart';
 import '../../alarms/application/alarm_permissions_helper.dart';
+import '../../../core/settings/session_restore.dart';
 import '../../notes/data/notes_repository.dart';
 import '../../notes/application/notes_providers.dart';
 import '../../tags/presentation/tag_autocomplete_field.dart';
@@ -218,6 +219,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
       _alarmPreset = AlarmPreset.light;
       _selectedOffsets = {ReminderOffset.atTime, ReminderOffset.thirtyMinBefore};
     }
+    SessionRestore.saveOpenMenu('event', entityId: widget.existingEvent?.id, extra: widget.initialDay?.toIso8601String() ?? '');
   }
 
   Future<void> _loadLinkedNote() async {
@@ -236,6 +238,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
 
   @override
   void dispose() {
+    SessionRestore.clearOpenMenu();
     _notesFocusNode.dispose();
     _notesTypingTimer?.cancel();
     _titleController.dispose();

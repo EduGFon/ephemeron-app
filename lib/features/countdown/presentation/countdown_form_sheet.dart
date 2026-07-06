@@ -6,6 +6,7 @@ import '../../../core/theme/theme_engine_provider.dart';
 import '../../../data/local/database.dart';
 import '../application/countdown_providers.dart';
 import '../domain/countdown_type.dart';
+import '../../../core/settings/session_restore.dart';
 
 Future<void> showCountdownFormSheet(
   BuildContext context, {
@@ -76,7 +77,14 @@ class _CountdownFormSheetState extends ConsumerState<CountdownFormSheet> {
   bool get _isEditing => widget.existingCountdown != null;
 
   @override
+  void initState() {
+    super.initState();
+    SessionRestore.saveOpenMenu('countdown', entityId: widget.existingCountdown?.id, extra: widget.type.name);
+  }
+
+  @override
   void dispose() {
+    SessionRestore.clearOpenMenu();
     _titleController.dispose();
     super.dispose();
   }

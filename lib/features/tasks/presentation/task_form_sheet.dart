@@ -13,6 +13,7 @@ import '../../alarms/domain/alarm_preset.dart';
 import '../../alarms/domain/reminder_offset.dart';
 import '../../tags/presentation/tag_autocomplete_field.dart' hide allTagsProvider;
 import '../../alarms/application/alarm_permissions_helper.dart';
+import '../../../core/settings/session_restore.dart';
 import '../application/task_providers.dart';
 import '../domain/task_recurrence.dart';
 
@@ -106,10 +107,12 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
         _selectedOffsets = _decodeOffsets(task.reminderOffsetsMinutes!).toSet();
       }
     }
+    SessionRestore.saveOpenMenu('task', entityId: widget.existingTask?.id, extra: widget.listId);
   }
 
   @override
   void dispose() {
+    SessionRestore.clearOpenMenu();
     _titleController.dispose();
     _descriptionController.dispose();
     _descriptionFocusNode.dispose();

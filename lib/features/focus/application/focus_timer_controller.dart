@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../../../core/settings/shared_preferences_provider.dart';
 import '../../alarms/application/alarm_scheduler_provider.dart';
 import 'focus_metrics_providers.dart';
 import '../domain/focus_mode.dart';
@@ -30,12 +31,18 @@ class FocusTimerController extends Notifier<FocusTimerState> {
       _ticker?.cancel();
       unawaited(WakelockPlus.disable());
     });
-    return const FocusTimerState();
+
+    final prefs = ref.watch(sharedPreferencesProvider);
+    final savedModeStr = prefs.getString('focus.lastMode');
+    final initialMode = savedModeStr == 'stopwatch' ? FocusMode.stopwatch : FocusMode.pomodoro;
+
+    return FocusTimerState(mode: initialMode);
   }
 
   void setMode(FocusMode mode) {
     if (state.isRunning) return; // don't allow switching mid-session
     state = state.copyWith(mode: mode, elapsed: Duration.zero);
+    ref.read(sharedPreferencesProvider).setString('focus.lastMode', mode.name);
   }
 
   void setLinkedTask(String? taskId) {

@@ -32,7 +32,13 @@ class AuthScreen extends ConsumerWidget {
             const _BackendAccountCard(),
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: () => context.go('/calendar'),
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                final lastScreen = prefs.getString('settings.lastScreen') ?? '/calendar';
+                if (context.mounted) {
+                  context.go(lastScreen);
+                }
+              },
               child: const Text('Continue'),
             ),
             const SizedBox(height: 8),

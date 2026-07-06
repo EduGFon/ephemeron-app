@@ -3,38 +3,187 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../features/quick_add/presentation/unified_creation_sheet.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../core/settings/app_settings_provider.dart';
+import '../../core/settings/shared_preferences_provider.dart';
 import '../../core/theme/theme_engine_provider.dart';
 import '../../core/theme/theme_palettes.dart';
+import '../../data/local/database_provider.dart';
+import '../../data/local/database.dart';
+import '../../features/calendar/application/calendar_providers.dart';
+import '../../features/calendar/presentation/event_form_sheet.dart';
+import '../../features/tasks/presentation/task_form_sheet.dart';
+import '../../features/habits/presentation/habit_form_sheet.dart';
+import '../../features/countdown/presentation/countdown_form_sheet.dart';
+import '../../features/countdown/domain/countdown_type.dart';
+import '../notes/note_form_sheet.dart';
 import 'nav_section.dart';
 import 'pinned_sections_provider.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
   static const _sectionsWithQuickAdd = {0, 1, 2, 3, 4, 6}; // Removed 5 (Focus)
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      
+      // 1. Restore last screen if different from current branch
+      final lastScreen = prefs.getString('settings.lastScreen');
+      if (lastScreen != null) {
+        final paths = ['/calendar', '/tasks', '/matrix', '/habits', '/countdown', '/focus', '/notes'];
+        final targetIndex = paths.indexOf(lastScreen);
+        if (targetIndex != -1 && targetIndex != widget.navigationShell.currentIndex) {
+          widget.navigationShell.goBranch(targetIndex);
+        }
+      }
+
+      // 2. Restore open menu
+      final menu = prefs.getString('session.openMenu') ?? 'none';
+      if (menu == 'none') return;
+      
+      // Clear it so it doesn't loop
+      await prefs.setString('session.openMenu', 'none');
+      
+      final entityId = prefs.getString('session.openMenuEntityId') ?? '';
+      final extra = prefs.getString('session.openMenuExtra') ?? '';
+
+      if (!mounted) return;
+
+      if (menu == 'quick_add') {
+        showUnifiedCreationSheet(context);
+      } else if (menu == 'task') {
+        if (entityId.isNotEmpty) {
+          final db = ref.read(appDatabaseProvider);
+          final task = await (db.select(db.tasks)..where((t) => t.id.equals(entityId))).getSingleOrNull();
+          if (task != null && mounted) {
+            showTaskFormSheet(context, listId: extra, existingTask: task);
+          }
+        } else {
+          showTaskFormSheet(context, listId: extra);
+        }
+      } else if (menu == 'event') {
+        if (entityId.isNotEmpty) {
+          final repo = ref.read(calendarRepositoryProvider);
+          final event = await repo.getEvent('primary', entityId);
+          if (event != null && mounted) {
+            showEventFormSheet(context, initialDay: event.start, existingEvent: event);
+          }
+        } else {
+          final day = DateTime.tryParse(extra) ?? DateTime.now();
+          showEventFormSheet(context, initialDay: day);
+        }
+      } else if (menu == 'habit') {
+        if (entityId.isNotEmpty) {
+          final db = ref.read(appDatabaseProvider);
+          final habit = await (db.select(db.habits)..where((h) => h.id.equals(entityId))).getSingleOrNull();
+          if (habit != null && mounted) {
+            showHabitFormSheet(context, existingHabit: habit);
+          }
+        } else {
+          showHabitFormSheet(context);
+        }
+      } else if (menu == 'countdown') {
+        final type = CountdownType.values.firstWhere((t) => t.name == extra, orElse: () => CountdownType.custom);
+        if (entityId.isNotEmpty) {
+          final db = ref.read(appDatabaseProvider);
+          final cd = await (db.select(db.countdowns)..where((c) => c.id.equals(entityId))).getSingleOrNull();
+          if (cd != null && mounted) {
+            showCountdownFormSheet(context, type: type, existingCountdown: cd);
+          }
+        } else {
+          showCountdownFormSheet(context, type: type);
+        }
+      } else if (menu == 'note') {
+        if (entityId.isNotEmpty) {
+          final db = ref.read(appDatabaseProvider);
+          final note = await (db.select(db.notes)..where((n) => n.id.equals(entityId))).getSingleOrNull();
+          if (note != null && mounted) {
+            _showNoteFormSheet(context, note);
+          }
+        } else {
+          _showNoteFormSheet(context, null);
+        }
+      }
+    });
+  }
+
+  void _showNoteFormSheet(BuildContext context, Note? existingNote) {
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (context, anim1, anim2) {
+        return Center(
+          child: SingleChildScrollView(
+            child: Material(
+              color: Colors.transparent,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: NoteFormSheet(existingNote: existingNote),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: anim1, child: child),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final pinned = ref.watch(pinnedSectionsProvider);
     final overflow = ref.watch(overflowSectionsProvider);
     final settings = ref.watch(appSettingsProvider);
     final palette = ref.watch(themeEngineProvider);
 
     final currentPinnedIndex = pinned.indexWhere(
-      (s) => s.branchIndex == navigationShell.currentIndex,
+      (s) => s.branchIndex == widget.navigationShell.currentIndex,
     );
     final selectedIndex = currentPinnedIndex == -1 ? pinned.length : currentPinnedIndex;
-    final showQuickAdd = _sectionsWithQuickAdd.contains(navigationShell.currentIndex);
+    final showQuickAdd = _sectionsWithQuickAdd.contains(widget.navigationShell.currentIndex);
+
+    // Save active screen branch to SharedPreferences
+    final currentBranchIndex = widget.navigationShell.currentIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      final paths = ['/calendar', '/tasks', '/matrix', '/habits', '/countdown', '/focus', '/notes'];
+      if (currentBranchIndex >= 0 && currentBranchIndex < paths.length) {
+        await prefs.setString('settings.lastScreen', paths[currentBranchIndex]);
+      }
+    });
 
     return Scaffold(
       backgroundColor: Colors.transparent, // Background handled by PremiumBackground
       extendBody: false, // Content is padded to fit above the bottom navigation bar
-      body: navigationShell,
+      body: widget.navigationShell,
       floatingActionButton: showQuickAdd
           ? Container(
               decoration: BoxDecoration(
@@ -55,9 +204,9 @@ class AppShell extends ConsumerWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 onPressed: () {
                   final currentSection = pinned.firstWhere(
-                    (s) => s.branchIndex == navigationShell.currentIndex,
+                    (s) => s.branchIndex == widget.navigationShell.currentIndex,
                     orElse: () => overflow.firstWhere(
-                      (s) => s.branchIndex == navigationShell.currentIndex,
+                      (s) => s.branchIndex == widget.navigationShell.currentIndex,
                     ),
                   );
                   showUnifiedCreationSheet(context, currentSection: currentSection);
@@ -74,12 +223,12 @@ class AppShell extends ConsumerWidget {
         palette: palette,
         onDestinationSelected: (index) {
           if (index < pinned.length) {
-            navigationShell.goBranch(
+            widget.navigationShell.goBranch(
               pinned[index].branchIndex,
-              initialLocation: pinned[index].branchIndex == navigationShell.currentIndex,
+              initialLocation: pinned[index].branchIndex == widget.navigationShell.currentIndex,
             );
           } else {
-            _showOverflowSheet(context, ref, overflow, navigationShell, palette);
+            _showOverflowSheet(context, ref, overflow, widget.navigationShell, palette);
           }
         },
       ),

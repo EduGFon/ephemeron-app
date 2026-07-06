@@ -32,40 +32,31 @@ class FocusScreen extends ConsumerWidget {
         elevation: 0,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Column(
-            children: [
-              SegmentedButton<FocusMode>(
-                style: SegmentedButton.styleFrom(
-                  backgroundColor: palette.surface.withValues(alpha: 0.5),
-                  foregroundColor: palette.text,
-                  selectedBackgroundColor: palette.primary.withValues(alpha: 0.2),
-                  selectedForegroundColor: palette.primary,
-                ),
-                segments: const [
-                  ButtonSegment(value: FocusMode.pomodoro, label: Text('Pomodoro')),
-                  ButtonSegment(value: FocusMode.stopwatch, label: Text('Stopwatch')),
-                ],
-                selected: {timerState.mode},
-                onSelectionChanged: timerState.isRunning
-                    ? null
-                    : (selection) => controller.setMode(selection.first),
-              ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
-              
-              const Spacer(),
-              
-              if (timerState.mode == FocusMode.pomodoro)
-                Text(
-                  timerState.pomodoroPhase == PomodoroPhase.work ? 'Focus' : 'Break',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: palette.primary,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Column(
+              children: [
+                SegmentedButton<FocusMode>(
+                  style: SegmentedButton.styleFrom(
+                    backgroundColor: palette.surface.withValues(alpha: 0.5),
+                    foregroundColor: palette.text,
+                    selectedBackgroundColor: palette.primary.withValues(alpha: 0.2),
+                    selectedForegroundColor: palette.primary,
                   ),
-                ).animate(key: ValueKey(timerState.pomodoroPhase)).fadeIn().scale(),
-              
-              const SizedBox(height: 16),
+                  segments: const [
+                    ButtonSegment(value: FocusMode.pomodoro, label: Text('Pomodoro')),
+                    ButtonSegment(value: FocusMode.stopwatch, label: Text('Stopwatch')),
+                  ],
+                  selected: {timerState.mode},
+                  onSelectionChanged: timerState.isRunning
+                      ? null
+                      : (selection) => controller.setMode(selection.first),
+                ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
+                
+                const SizedBox(height: 24),
+                
+                const SizedBox(height: 16),
               
               Container(
                 width: 280,
@@ -158,7 +149,7 @@ class FocusScreen extends ConsumerWidget {
                 ),
               ).animate().fadeIn(duration: 500.ms, delay: 300.ms).slideY(begin: 0.1),
               
-              const Spacer(),
+                const SizedBox(height: 24),
               
               _Controls(state: timerState, controller: controller, palette: palette)
                   .animate().fadeIn(duration: 500.ms, delay: 400.ms).slideY(begin: 0.2),
@@ -171,8 +162,9 @@ class FocusScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   String _formatDuration(Duration d) {
     final hours = d.inHours;

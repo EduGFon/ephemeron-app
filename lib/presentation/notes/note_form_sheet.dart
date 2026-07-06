@@ -10,6 +10,7 @@ import '../../core/theme/theme_palettes.dart';
 import '../../data/local/database.dart';
 import '../../features/calendar/application/calendar_providers.dart';
 import '../../features/calendar/presentation/event_form_sheet.dart';
+import '../../../core/settings/session_restore.dart';
 import '../../features/notes/application/notes_providers.dart';
 import '../../features/notes/data/notes_repository.dart';
 
@@ -43,10 +44,12 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
         });
       }
     });
+    SessionRestore.saveOpenMenu('note', entityId: widget.existingNote?.id);
   }
 
   @override
   void dispose() {
+    SessionRestore.clearOpenMenu();
     _titleController.dispose();
     _contentController.dispose();
     _contentFocusNode.dispose();

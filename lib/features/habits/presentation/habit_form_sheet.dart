@@ -12,6 +12,7 @@ import '../application/habit_providers.dart';
 import '../domain/habit_frequency.dart';
 import '../domain/habit_goal_unit.dart';
 import '../domain/habit_section.dart';
+import '../../../core/settings/session_restore.dart';
 
 Future<void> showHabitFormSheet(BuildContext context, {Habit? existingHabit, String? initialName}) {
   return showGeneralDialog<void>(
@@ -115,10 +116,12 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
     _alarmPreset = habit?.alarmPreset != null
         ? AlarmPreset.values.byName(habit!.alarmPreset!)
         : null;
+    SessionRestore.saveOpenMenu('habit', entityId: widget.existingHabit?.id);
   }
 
   @override
   void dispose() {
+    SessionRestore.clearOpenMenu();
     _nameController.dispose();
     _amountController.dispose();
     _intervalController.dispose();

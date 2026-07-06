@@ -11,6 +11,7 @@ import '../../countdown/domain/countdown_type.dart';
 import '../../tasks/application/task_providers.dart';
 import '../../../presentation/shell/nav_section.dart';
 import '../../../presentation/notes/note_form_sheet.dart';
+import '../../../core/settings/session_restore.dart';
 import 'quick_add_target.dart';
 
 Future<void> showUnifiedCreationSheet(BuildContext context, {NavSection? currentSection}) {
@@ -70,6 +71,13 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
       NavSection.notes => QuickAddTarget.note,
       _ => QuickAddTarget.task,
     };
+    SessionRestore.saveOpenMenu('quick_add');
+  }
+
+  @override
+  void dispose() {
+    SessionRestore.clearOpenMenu();
+    super.dispose();
   }
 
   @override
