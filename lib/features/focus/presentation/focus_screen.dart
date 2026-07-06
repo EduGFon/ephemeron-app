@@ -32,139 +32,168 @@ class FocusScreen extends ConsumerWidget {
         elevation: 0,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Column(
-              children: [
-                SegmentedButton<FocusMode>(
-                  style: SegmentedButton.styleFrom(
-                    backgroundColor: palette.surface.withValues(alpha: 0.5),
-                    foregroundColor: palette.text,
-                    selectedBackgroundColor: palette.primary.withValues(alpha: 0.2),
-                    selectedForegroundColor: palette.primary,
-                  ),
-                  segments: const [
-                    ButtonSegment(value: FocusMode.pomodoro, label: Text('Pomodoro')),
-                    ButtonSegment(value: FocusMode.stopwatch, label: Text('Stopwatch')),
-                  ],
-                  selected: {timerState.mode},
-                  onSelectionChanged: timerState.isRunning
-                      ? null
-                      : (selection) => controller.setMode(selection.first),
-                ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
-                
-                const SizedBox(height: 24),
-                
-                const SizedBox(height: 16),
-              
-              Container(
-                width: 280,
-                height: 280,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: palette.surface.withValues(alpha: palette.isAmoled ? 1.0 : 0.8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: palette.primary.withValues(alpha: timerState.isRunning ? 0.3 : 0.05),
-                      blurRadius: timerState.isRunning ? 40 : 20,
-                      spreadRadius: timerState.isRunning ? 10 : 0,
-                    )
-                  ],
-                  border: Border.all(
-                    color: palette.primary.withValues(alpha: timerState.isRunning ? 0.5 : 0.1),
-                    width: 2,
-                  ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                  minWidth: constraints.maxWidth,
                 ),
-                child: ClipOval(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: Text(
-                                _formatDuration(timerState.elapsed),
-                                style: TextStyle(
-                                  fontFamily: 'Fraunces',
-                                  fontSize: 80,
-                                  fontWeight: FontWeight.w600,
-                                  color: palette.text,
-                                  height: 1.0,
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    child: Column(
+                      children: [
+                        SegmentedButton<FocusMode>(
+                          style: SegmentedButton.styleFrom(
+                            backgroundColor: palette.surface.withValues(alpha: 0.5),
+                            foregroundColor: palette.text,
+                            selectedBackgroundColor: palette.primary.withValues(alpha: 0.2),
+                            selectedForegroundColor: palette.primary,
+                          ),
+                          segments: const [
+                            ButtonSegment(value: FocusMode.pomodoro, label: Text('Pomodoro')),
+                            ButtonSegment(value: FocusMode.stopwatch, label: Text('Stopwatch')),
+                          ],
+                          selected: {timerState.mode},
+                          onSelectionChanged: timerState.isRunning
+                              ? null
+                              : (selection) => controller.setMode(selection.first),
+                        ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
+                        
+                        const Spacer(),
+                        
+                        Container(
+                          width: 280,
+                          height: 280,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: palette.surface.withValues(alpha: palette.isAmoled ? 1.0 : 0.8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: palette.primary.withValues(alpha: timerState.isRunning ? 0.3 : 0.05),
+                                blurRadius: timerState.isRunning ? 40 : 20,
+                                spreadRadius: timerState.isRunning ? 10 : 0,
+                              )
+                            ],
+                            border: Border.all(
+                              color: palette.primary.withValues(alpha: timerState.isRunning ? 0.5 : 0.1),
+                              width: 2,
+                            ),
+                          ),
+                          child: ClipOval(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                                        child: Text(
+                                          _formatDuration(timerState.elapsed),
+                                          style: TextStyle(
+                                            fontFamily: 'Fraunces',
+                                            fontSize: 80,
+                                            fontWeight: FontWeight.w600,
+                                            color: palette.text,
+                                            height: 1.0,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (timerState.mode == FocusMode.pomodoro)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text(
+                                          'of ${_formatDuration(timerState.pomodoroTarget)}',
+                                          style: theme.textTheme.bodyMedium?.copyWith(color: palette.text.withValues(alpha: 0.6)),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),
                           ),
-                          if (timerState.mode == FocusMode.pomodoro)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                'of ${_formatDuration(timerState.pomodoroTarget)}',
-                                style: theme.textTheme.bodyMedium?.copyWith(color: palette.text.withValues(alpha: 0.6)),
+                        ).animate(target: timerState.isRunning ? 1 : 0).scale(
+                          begin: const Offset(1, 1), 
+                          end: const Offset(1.05, 1.05), 
+                          duration: 1.seconds, 
+                          curve: Curves.easeInOutSine,
+                        ),
+
+                        const SizedBox(height: 48),
+                        
+                        _LinkPicker(state: timerState, controller: controller, palette: palette)
+                            .animate().fadeIn(duration: 500.ms, delay: 200.ms).slideY(begin: 0.1),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Compact Glassmorphic Toggle Button for Keep Screen On
+                        InkWell(
+                          onTap: () => controller.setKeepScreenOn(!timerState.keepScreenOn),
+                          borderRadius: BorderRadius.circular(20),
+                          child: AnimatedContainer(
+                            duration: 200.ms,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: timerState.keepScreenOn
+                                  ? palette.primary.withValues(alpha: 0.15)
+                                  : palette.surface.withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: timerState.keepScreenOn
+                                    ? palette.primary
+                                    : palette.text.withValues(alpha: 0.1),
                               ),
                             ),
-                        ],
-                      ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  timerState.keepScreenOn
+                                      ? Icons.wb_sunny
+                                      : Icons.wb_sunny_outlined,
+                                  size: 16,
+                                  color: timerState.keepScreenOn ? palette.primary : palette.text.withValues(alpha: 0.6),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Keep screen on',
+                                  style: TextStyle(
+                                    color: timerState.keepScreenOn ? palette.primary : palette.text.withValues(alpha: 0.8),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ).animate().fadeIn(duration: 500.ms, delay: 300.ms).slideY(begin: 0.1),
+                        
+                        const Spacer(),
+                        
+                        _Controls(state: timerState, controller: controller, palette: palette)
+                            .animate().fadeIn(duration: 500.ms, delay: 400.ms).slideY(begin: 0.2),
+                        
+                        const SizedBox(height: 24),
+                        
+                        _TotalsRow(palette: palette).animate().fadeIn(duration: 500.ms, delay: 500.ms),
+                        const SizedBox(height: 90), // Bottom padding for floating pill
+                      ],
                     ),
                   ),
                 ),
-              ).animate(target: timerState.isRunning ? 1 : 0).scale(
-                begin: const Offset(1, 1), 
-                end: const Offset(1.05, 1.05), 
-                duration: 1.seconds, 
-                curve: Curves.easeInOutSine,
               ),
-
-              const SizedBox(height: 48),
-              
-              _LinkPicker(state: timerState, controller: controller, palette: palette)
-                  .animate().fadeIn(duration: 500.ms, delay: 200.ms).slideY(begin: 0.1),
-              
-              const SizedBox(height: 16),
-              
-              Container(
-                decoration: BoxDecoration(
-                  color: palette.surface.withValues(alpha: palette.isAmoled ? 1.0 : 0.4),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: palette.text.withValues(alpha: 0.1)),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: SwitchListTile(
-                        title: Text('Keep screen on', style: TextStyle(color: palette.text)),
-                        value: timerState.keepScreenOn,
-                        onChanged: controller.setKeepScreenOn,
-                        activeThumbColor: palette.primary,
-                      ),
-                    ),
-                  ),
-                ),
-              ).animate().fadeIn(duration: 500.ms, delay: 300.ms).slideY(begin: 0.1),
-              
-                const SizedBox(height: 24),
-              
-              _Controls(state: timerState, controller: controller, palette: palette)
-                  .animate().fadeIn(duration: 500.ms, delay: 400.ms).slideY(begin: 0.2),
-              
-              const SizedBox(height: 24),
-              
-              _TotalsRow(palette: palette).animate().fadeIn(duration: 500.ms, delay: 500.ms),
-              const SizedBox(height: 90), // Bottom padding for floating pill
-            ],
-          ),
+            );
+          },
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   String _formatDuration(Duration d) {
     final hours = d.inHours;

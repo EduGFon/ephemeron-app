@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../data/local/database.dart';
 import '../../../data/local/database_provider.dart';
@@ -34,6 +35,36 @@ final tasksInListProvider = StreamProvider.family<List<Task>, String>((
   listId,
 ) {
   return ref.watch(taskRepositoryProvider).watchTasksInList(listId);
+});
+
+final customSmartListsProvider = StreamProvider<List<CustomSmartList>>((ref) {
+  return ref.watch(taskRepositoryProvider).watchCustomSmartLists();
+});
+
+final customSmartListByIdProvider = StreamProvider.family<CustomSmartList?, String>((ref, id) {
+  return ref.watch(taskRepositoryProvider).watchCustomSmartListById(id);
+});
+
+final tasksForListProvider = StreamProvider.family<List<Task>, String>((ref, listId) {
+  final repo = ref.watch(taskRepositoryProvider);
+  if (listId.startsWith('smart:')) {
+    final typeStr = listId.substring(6);
+    final type = SmartListType.values.firstWhere((e) => e.name == typeStr);
+    return repo.watchSmartList(type);
+  } else if (listId.startsWith('custom_smart:')) {
+    final id = listId.substring(13);
+    final smartListAsync = ref.watch(customSmartListByIdProvider(id));
+    return smartListAsync.when(
+      data: (smartList) {
+        if (smartList == null) return Stream.value(<Task>[]);
+        return repo.watchTasksForCustomSmartList(smartList);
+      },
+      loading: () => const Stream<List<Task>>.empty(),
+      error: (err, stack) => Stream<List<Task>>.error(err, stack),
+    );
+  } else {
+    return repo.watchTasksInList(listId);
+  }
 });
 
 final allPendingTasksProvider = StreamProvider<List<Task>>((ref) {
@@ -99,7 +130,7 @@ final taskSortOptionProvider = NotifierProvider<TaskSortOptionNotifier, TaskSort
 });
 
 final pendingTasksInListProvider = Provider.family<AsyncValue<List<Task>>, String>((ref, listId) {
-  final tasksAsync = ref.watch(tasksInListProvider(listId));
+  final tasksAsync = ref.watch(tasksForListProvider(listId));
   final sortOption = ref.watch(taskSortOptionProvider);
 
   return tasksAsync.whenData((tasks) {
@@ -134,7 +165,7 @@ final pendingTasksInListProvider = Provider.family<AsyncValue<List<Task>>, Strin
 });
 
 final completedTasksInListProvider = Provider.family<AsyncValue<List<Task>>, String>((ref, listId) {
-  final tasksAsync = ref.watch(tasksInListProvider(listId));
+  final tasksAsync = ref.watch(tasksForListProvider(listId));
   return tasksAsync.whenData((tasks) {
     final completed = tasks.where((t) => t.isCompleted).toList();
     completed.sort((a, b) {
@@ -145,4 +176,6 @@ final completedTasksInListProvider = Provider.family<AsyncValue<List<Task>>, Str
     return completed;
   });
 });
+
+final selectedListIdProvider = StateProvider<String?>((ref) => null);
 

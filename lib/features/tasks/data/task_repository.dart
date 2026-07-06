@@ -145,7 +145,6 @@ class TaskRepository {
               t.isDeleted.equals(false) &
               t.isWontDo.equals(false) &
               t.isCompleted.equals(false) &
-              t.dueDate.isBiggerOrEqualValue(startOfToday) &
               t.dueDate.isSmallerThanValue(startOfTomorrow),
         );
       case SmartListType.tomorrow:
@@ -163,7 +162,6 @@ class TaskRepository {
               t.isDeleted.equals(false) &
               t.isWontDo.equals(false) &
               t.isCompleted.equals(false) &
-              t.dueDate.isBiggerOrEqualValue(startOfToday) &
               t.dueDate.isSmallerThanValue(startOfNext7),
         );
       case SmartListType.completed:
@@ -193,6 +191,7 @@ class TaskRepository {
     bool dueHasTime = false,
     TaskRecurrence recurrence = TaskRecurrence.none,
     int durationMinutes = 30,
+    bool isWontDo = false,
     String? parentTaskId,
     AlarmPreset? alarmPreset,
     List<ReminderOffset> reminderOffsets = const [],
@@ -215,11 +214,13 @@ class TaskRepository {
               recurrence.isRecurring ? recurrence.encode() : null,
             ),
             durationMinutes: Value(durationMinutes),
+            isWontDo: Value(isWontDo),
             alarmPreset: Value(alarmPreset?.name),
             reminderOffsetsMinutes: Value(_encodeOffsets(reminderOffsets)),
           ),
         );
 
+    await _syncTagsForTask(id, title, description);
     await _syncAlarmsAndRemote(id);
     return (_db.select(_db.tasks)..where((t) => t.id.equals(id))).getSingle();
   }
@@ -238,6 +239,7 @@ class TaskRepository {
     bool? dueHasTime,
     TaskRecurrence? recurrence,
     int? durationMinutes,
+    bool? isWontDo,
     Value<AlarmPreset?>? alarmPreset,
     List<ReminderOffset>? reminderOffsets,
   }) async {
@@ -258,6 +260,7 @@ class TaskRepository {
         durationMinutes: durationMinutes != null
             ? Value(durationMinutes)
             : const Value.absent(),
+        isWontDo: isWontDo != null ? Value(isWontDo) : const Value.absent(),
         alarmPreset: alarmPreset != null
             ? Value(alarmPreset.value?.name)
             : const Value.absent(),
@@ -267,6 +270,10 @@ class TaskRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    final task = await _getTask(taskId);
+    if (task != null) {
+      await _syncTagsForTask(taskId, task.title, task.description);
+    }
     await _syncAlarmsAndRemote(taskId);
   }
 
@@ -413,6 +420,37 @@ class TaskRepository {
     );
   }
 
+  Future<void> _syncTagsForTask(String taskId, String title, String? description) async {
+    final text = '$title ${description ?? ''}';
+    final matches = RegExp(r'#(\w+)').allMatches(text);
+    final tagNames = matches.map((m) => m.group(1)!.trim().toLowerCase()).toSet();
+
+    final existingTags = await (_db.select(_db.tags).join([
+      innerJoin(_db.taskTags, _db.taskTags.tagId.equalsExp(_db.tags.id)),
+    ])..where(_db.taskTags.taskId.equals(taskId))).get();
+
+    final existingTagNames = existingTags.map((row) => row.readTable(_db.tags).name.toLowerCase()).toSet();
+
+    for (final row in existingTags) {
+      final tag = row.readTable(_db.tags);
+      if (!tagNames.contains(tag.name.toLowerCase())) {
+        await (_db.delete(_db.taskTags)
+              ..where((tt) => tt.taskId.equals(taskId) & tt.tagId.equals(tag.id)))
+            .go();
+      }
+    }
+
+    for (final name in tagNames) {
+      var tag = await (_db.select(_db.tags)..where((t) => t.name.equals(name))).getSingleOrNull();
+      if (tag == null) {
+        tag = await createTag(name: name);
+      }
+      if (!existingTagNames.contains(name)) {
+        await assignTag(taskId, tag.id);
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Internal: alarms + Google Tasks mirror wiring
   // ---------------------------------------------------------------------
@@ -505,6 +543,98 @@ class TaskRepository {
       dueDate: task.dueDate,
       isCompleted: isCompleted,
     );
+  }
+
+  // ---------------------------------------------------------------------
+  // Custom Smart Lists
+  // ---------------------------------------------------------------------
+
+  Stream<List<CustomSmartList>> watchCustomSmartLists() {
+    return (_db.select(_db.customSmartLists)
+          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+        .watch();
+  }
+
+  Stream<CustomSmartList?> watchCustomSmartListById(String id) {
+    return (_db.select(_db.customSmartLists)..where((t) => t.id.equals(id)))
+        .watchSingleOrNull();
+  }
+
+  Future<CustomSmartList> createCustomSmartList({
+    required String name,
+    String colorHex = '#1B4B4A',
+    int? minPriority,
+    String? dateFilter,
+    String? tagId,
+    bool? isCompletedFilter,
+  }) async {
+    final id = _uuid.v4();
+    await _db.into(_db.customSmartLists).insert(
+          CustomSmartListsCompanion.insert(
+            id: Value(id),
+            name: name,
+            colorHex: Value(colorHex),
+            minPriority: Value(minPriority),
+            dateFilter: Value(dateFilter),
+            tagId: Value(tagId),
+            isCompletedFilter: Value(isCompletedFilter),
+          ),
+        );
+    return (_db.select(_db.customSmartLists)..where((t) => t.id.equals(id))).getSingle();
+  }
+
+  Future<void> deleteCustomSmartList(String id) async {
+    await (_db.delete(_db.customSmartLists)..where((t) => t.id.equals(id))).go();
+  }
+
+  Stream<List<Task>> watchTasksForCustomSmartList(CustomSmartList smartList) {
+    SimpleSelectStatement<$TasksTable, Task> selectStatement = _db.select(_db.tasks);
+    JoinedSelectStatement selectWithJoin;
+
+    if (smartList.tagId != null) {
+      selectWithJoin = selectStatement.join([
+        innerJoin(_db.taskTags, _db.taskTags.taskId.equalsExp(_db.tasks.id)),
+      ]);
+      selectWithJoin.where(_db.taskTags.tagId.equals(smartList.tagId!));
+    } else {
+      selectWithJoin = selectStatement.join([]);
+    }
+
+    selectWithJoin.where(_db.tasks.parentTaskId.isNull());
+    selectWithJoin.where(_db.tasks.isDeleted.equals(false));
+    selectWithJoin.where(_db.tasks.isWontDo.equals(false));
+
+    if (smartList.isCompletedFilter != null) {
+      selectWithJoin.where(_db.tasks.isCompleted.equals(smartList.isCompletedFilter!));
+    }
+
+    if (smartList.minPriority != null) {
+      selectWithJoin.where(_db.tasks.priority.isBiggerOrEqualValue(smartList.minPriority!));
+    }
+
+    if (smartList.dateFilter != null) {
+      final now = DateTime.now();
+      final startOfToday = DateTime(now.year, now.month, now.day);
+      if (smartList.dateFilter == 'today') {
+        final startOfTomorrow = startOfToday.add(const Duration(days: 1));
+        selectWithJoin.where(_db.tasks.dueDate.isSmallerThanValue(startOfTomorrow));
+      } else if (smartList.dateFilter == 'tomorrow') {
+        final startOfTomorrow = startOfToday.add(const Duration(days: 1));
+        final startOfDayAfterTomorrow = startOfToday.add(const Duration(days: 2));
+        selectWithJoin.where(_db.tasks.dueDate.isBiggerOrEqualValue(startOfTomorrow) & _db.tasks.dueDate.isSmallerThanValue(startOfDayAfterTomorrow));
+      } else if (smartList.dateFilter == 'thisWeek') {
+        final weekday = now.weekday;
+        final startOfWeek = startOfToday.subtract(Duration(days: weekday - 1));
+        final endOfWeek = startOfWeek.add(const Duration(days: 7));
+        selectWithJoin.where(_db.tasks.dueDate.isSmallerThanValue(endOfWeek));
+      } else if (smartList.dateFilter == 'next7Days') {
+        final startOfNext7 = startOfToday.add(const Duration(days: 7));
+        selectWithJoin.where(_db.tasks.dueDate.isSmallerThanValue(startOfNext7));
+      }
+    }
+
+    selectWithJoin.orderBy([OrderingTerm.asc(_db.tasks.dueDate)]);
+    return selectWithJoin.watch().map((rows) => rows.map((r) => r.readTable(_db.tasks)).toList());
   }
 
   String? _encodeOffsets(List<ReminderOffset> offsets) {

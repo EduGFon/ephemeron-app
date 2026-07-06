@@ -84,10 +84,11 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
   Widget build(BuildContext context) {
     final palette = ref.watch(themeEngineProvider);
     final listsAsync = ref.watch(listsProvider);
-    final defaultListId = listsAsync.value?.firstWhere(
+    final selectedListId = ref.watch(selectedListIdProvider);
+    final defaultListId = selectedListId ?? (listsAsync.value?.firstWhere(
       (l) => l.isInbox, 
       orElse: () => listsAsync.value!.first
-    ).id ?? '';
+    ).id ?? '');
 
     final header = Padding(
       padding: const EdgeInsets.only(bottom: 24),

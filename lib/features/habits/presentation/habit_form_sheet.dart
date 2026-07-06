@@ -117,6 +117,57 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
         ? AlarmPreset.values.byName(habit!.alarmPreset!)
         : null;
     SessionRestore.saveOpenMenu('habit', entityId: widget.existingHabit?.id);
+    _nameController.addListener(_onNameChanged);
+    _amountController.addListener(_onAmountChanged);
+    _incrementController.addListener(_onIncrementChanged);
+    _restoreDrafts();
+  }
+
+  void _onNameChanged() {
+    SessionRestore.saveDraftValue('habit', 'name', _nameController.text);
+  }
+
+  void _onAmountChanged() {
+    SessionRestore.saveDraftValue('habit', 'amount', _amountController.text);
+  }
+
+  void _onIncrementChanged() {
+    SessionRestore.saveDraftValue('habit', 'increment', _incrementController.text);
+  }
+
+  void _restoreDrafts() async {
+    final n = await SessionRestore.getDraftValue('habit', 'name');
+    final a = await SessionRestore.getDraftValue('habit', 'amount');
+    final inc = await SessionRestore.getDraftValue('habit', 'increment');
+    final f = await SessionRestore.getDraftValue('habit', 'frequencyType');
+    final u = await SessionRestore.getDraftValue('habit', 'selectedUnit');
+    final ap = await SessionRestore.getDraftValue('habit', 'alarmPreset');
+    final rh = await SessionRestore.getDraftValue('habit', 'reminderHour');
+    final rm = await SessionRestore.getDraftValue('habit', 'reminderMinute');
+    if (mounted) {
+      setState(() {
+        if (n != null) {
+          _nameController.removeListener(_onNameChanged);
+          _nameController.text = n;
+          _nameController.addListener(_onNameChanged);
+        }
+        if (a != null) {
+          _amountController.removeListener(_onAmountChanged);
+          _amountController.text = a;
+          _amountController.addListener(_onAmountChanged);
+        }
+        if (inc != null) {
+          _incrementController.removeListener(_onIncrementChanged);
+          _incrementController.text = inc;
+          _incrementController.addListener(_onIncrementChanged);
+        }
+        if (f != null) _frequencyType = HabitFrequencyType.values.byName(f);
+        if (u != null) _selectedUnit = HabitGoalUnit.values.byName(u);
+        if (ap != null) _alarmPreset = ap == 'none' ? null : AlarmPreset.values.byName(ap);
+        if (rh != null) _reminderHour = int.tryParse(rh);
+        if (rm != null) _reminderMinute = int.tryParse(rm);
+      });
+    }
   }
 
   @override
@@ -124,8 +175,8 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
     SessionRestore.clearOpenMenu();
     _nameController.dispose();
     _amountController.dispose();
-    _intervalController.dispose();
     _incrementController.dispose();
+    _intervalController.dispose();
     super.dispose();
   }
 
@@ -187,6 +238,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                         icon: Icon(Icons.delete_outline, color: Colors.redAccent.withValues(alpha: 0.8)),
                         onPressed: () async {
                           await ref.read(habitRepositoryProvider).deleteHabit(widget.existingHabit!.id);
+                          await SessionRestore.clearDraftValues('habit');
                           if (context.mounted) Navigator.pop(context);
                         },
                       ),
@@ -295,7 +347,10 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
             ButtonSegment(value: HabitFrequencyType.interval, label: Text('Interval')),
           ],
           selected: {_frequencyType},
-          onSelectionChanged: (selection) => setState(() => _frequencyType = selection.first),
+          onSelectionChanged: (selection) {
+            setState(() => _frequencyType = selection.first);
+            SessionRestore.saveDraftValue('habit', 'frequencyType', selection.first.name);
+          },
         ),
         const SizedBox(height: 12),
         switch (_frequencyType) {
@@ -427,6 +482,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                       setState(() {
                         _selectedUnit = value;
                       });
+                      SessionRestore.saveDraftValue('habit', 'selectedUnit', value.name);
                     }
                   },
                 ),
@@ -522,6 +578,9 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                     _reminderMinute = time.minute;
                     _alarmPreset ??= AlarmPreset.light;
                   });
+                  SessionRestore.saveDraftValue('habit', 'reminderHour', time.hour.toString());
+                  SessionRestore.saveDraftValue('habit', 'reminderMinute', time.minute.toString());
+                  SessionRestore.saveDraftValue('habit', 'alarmPreset', (_alarmPreset ?? AlarmPreset.light).name);
                 },
                 child: Text(
                   _reminderHour == null
@@ -533,11 +592,16 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
               if (_reminderHour != null)
                 IconButton(
                   icon: Icon(Icons.close, color: palette.text.withValues(alpha: 0.6)),
-                  onPressed: () => setState(() {
-                    _reminderHour = null;
-                    _reminderMinute = null;
-                    _alarmPreset = null;
-                  }),
+                  onPressed: () {
+                    setState(() {
+                      _reminderHour = null;
+                      _reminderMinute = null;
+                      _alarmPreset = null;
+                    });
+                    SessionRestore.saveDraftValue('habit', 'alarmPreset', 'none');
+                    SessionRestore.saveDraftValue('habit', 'reminderHour', 'none');
+                    SessionRestore.saveDraftValue('habit', 'reminderMinute', 'none');
+                  },
                 ),
             ],
           ),
@@ -559,7 +623,10 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                       DropdownMenuItem(value: AlarmPreset.strong, child: Text('Strong (Long Sound)')),
                       DropdownMenuItem(value: AlarmPreset.constant, child: Text('Constant Alert')),
                     ],
-                    onChanged: (value) => setState(() => _alarmPreset = value),
+                    onChanged: (value) {
+                      setState(() => _alarmPreset = value);
+                      if (value != null) SessionRestore.saveDraftValue('habit', 'alarmPreset', value.name);
+                    },
                   ),
                 ),
               ],
@@ -623,6 +690,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
           alarmPreset: _alarmPreset,
         );
       }
+      await SessionRestore.clearDraftValues('habit');
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _isSaving = false);

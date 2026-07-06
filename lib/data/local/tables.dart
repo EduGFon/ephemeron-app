@@ -259,3 +259,19 @@ class CachedCalendarEvents extends Table {
   Set<Column> get primaryKey => {id, calendarId};
 }
 
+@DataClassName('CustomSmartList')
+class CustomSmartLists extends Table {
+  TextColumn get id => text().clientDefault(() => tableIdGenerator.v4())();
+  TextColumn get name => text()();
+  TextColumn get colorHex => text().withDefault(const Constant('#1B4B4A'))();
+  IntColumn get minPriority => integer().nullable()();
+  TextColumn get dateFilter => text().nullable()(); // 'today', 'tomorrow', 'thisWeek', 'next7Days'
+  TextColumn get tagId => text().nullable().references(Tags, #id)();
+  BoolColumn get isCompletedFilter => boolean().nullable()();
+  DateTimeColumn get createdAt =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+

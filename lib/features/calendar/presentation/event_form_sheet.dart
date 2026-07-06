@@ -220,6 +220,51 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
       _selectedOffsets = {ReminderOffset.atTime, ReminderOffset.thirtyMinBefore};
     }
     SessionRestore.saveOpenMenu('event', entityId: widget.existingEvent?.id, extra: widget.initialDay?.toIso8601String() ?? '');
+    _titleController.addListener(_onTitleChanged);
+    _notesController.addListener(_onNotesChanged);
+    _restoreDrafts();
+  }
+
+  void _onTitleChanged() {
+    SessionRestore.saveDraftValue('event', 'title', _titleController.text);
+  }
+
+  void _onNotesChanged() {
+    SessionRestore.saveDraftValue('event', 'notes', _notesController.text);
+  }
+
+  void _saveDateDrafts() {
+    SessionRestore.saveDraftValue('event', 'start', _start.toIso8601String());
+    SessionRestore.saveDraftValue('event', 'end', _end.toIso8601String());
+  }
+
+  void _restoreDrafts() async {
+    final t = await SessionRestore.getDraftValue('event', 'title');
+    final n = await SessionRestore.getDraftValue('event', 'notes');
+    final s = await SessionRestore.getDraftValue('event', 'start');
+    final e = await SessionRestore.getDraftValue('event', 'end');
+    final ad = await SessionRestore.getDraftValue('event', 'isAllDay');
+    final c = await SessionRestore.getDraftValue('event', 'colorId');
+    final vc = await SessionRestore.getDraftValue('event', 'addVideoConference');
+    if (mounted) {
+      setState(() {
+        if (t != null) {
+          _titleController.removeListener(_onTitleChanged);
+          _titleController.text = t;
+          _titleController.addListener(_onTitleChanged);
+        }
+        if (n != null) {
+          _notesController.removeListener(_onNotesChanged);
+          _notesController.text = n;
+          _notesController.addListener(_onNotesChanged);
+        }
+        if (s != null) _start = DateTime.tryParse(s) ?? _start;
+        if (e != null) _end = DateTime.tryParse(e) ?? _end;
+        if (ad != null) _isAllDay = ad == 'true';
+        if (c != null) _colorId = c;
+        if (vc != null) _addVideoConference = vc == 'true';
+      });
+    }
   }
 
   Future<void> _loadLinkedNote() async {
@@ -321,7 +366,10 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                     _ColorPickerButton(
                       selectedColor: _selectedColor,
                       palette: palette,
-                      onChanged: (id) => setState(() => _colorId = id),
+                      onChanged: (id) {
+                        setState(() => _colorId = id);
+                        SessionRestore.saveDraftValue('event', 'colorId', id ?? '');
+                      },
                     ),
                     if (_isEditing) ...[
                       const SizedBox(width: 4),
@@ -333,6 +381,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                             calendarId: widget.existingEvent!.calendarId,
                           );
                           ref.invalidate(monthEventsProvider(DateTime(_start.year, _start.month, 1)));
+                          await SessionRestore.clearDraftValues('event');
                           if (context.mounted) Navigator.pop(context);
                         },
                       ),
@@ -373,7 +422,14 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                         Icon(Icons.access_time_outlined, size: 18, color: palette.text.withValues(alpha: 0.4)),
                         const SizedBox(width: 12),
                         Expanded(child: Text('All day', style: TextStyle(color: palette.text, fontWeight: FontWeight.w500))),
-                        Switch(value: _isAllDay, activeThumbColor: palette.primary, onChanged: (v) => setState(() => _isAllDay = v)),
+                        Switch(
+                          value: _isAllDay,
+                          activeThumbColor: palette.primary,
+                          onChanged: (v) {
+                            setState(() => _isAllDay = v);
+                            SessionRestore.saveDraftValue('event', 'isAllDay', v.toString());
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -382,16 +438,24 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                     onDateChanged: (d) => setState(() {
                       _start = DateTime(d.year, d.month, d.day, _start.hour, _start.minute);
                       if (_end.isBefore(_start)) _end = _start.add(const Duration(hours: 1));
+                      _saveDateDrafts();
                     }),
                     onTimeChanged: (t) => setState(() {
                       _start = DateTime(_start.year, _start.month, _start.day, t.hour, t.minute);
                       if (_end.isBefore(_start)) _end = _start.add(const Duration(hours: 1));
+                      _saveDateDrafts();
                     }),
                   ),
                   const Divider(height: 1, thickness: 0.5),
                   _buildDateTimeRow(palette: palette, label: 'Ends', value: _end,
-                    onDateChanged: (d) => setState(() => _end = DateTime(d.year, d.month, d.day, _end.hour, _end.minute)),
-                    onTimeChanged: (t) => setState(() => _end = DateTime(_end.year, _end.month, _end.day, t.hour, t.minute)),
+                    onDateChanged: (d) => setState(() {
+                      _end = DateTime(d.year, d.month, d.day, _end.hour, _end.minute);
+                      _saveDateDrafts();
+                    }),
+                    onTimeChanged: (t) => setState(() {
+                      _end = DateTime(_end.year, _end.month, _end.day, t.hour, t.minute);
+                      _saveDateDrafts();
+                    }),
                   ),
                 ]),
 
@@ -1182,6 +1246,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
 
       ref.invalidate(monthEventsProvider(DateTime(_start.year, _start.month, 1)));
       ref.invalidate(monthEventsProvider(DateTime(_end.year, _end.month, 1)));
+      await SessionRestore.clearDraftValues('event');
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _isSaving = false);

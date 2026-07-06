@@ -45,6 +45,36 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
       }
     });
     SessionRestore.saveOpenMenu('note', entityId: widget.existingNote?.id);
+    _titleController.addListener(_onTitleChanged);
+    _contentController.addListener(_onContentChanged);
+    _restoreDrafts();
+  }
+
+  void _onTitleChanged() {
+    SessionRestore.saveDraftValue('note', 'title', _titleController.text);
+  }
+
+  void _onContentChanged() {
+    SessionRestore.saveDraftValue('note', 'content', _contentController.text);
+  }
+
+  void _restoreDrafts() async {
+    final t = await SessionRestore.getDraftValue('note', 'title');
+    final c = await SessionRestore.getDraftValue('note', 'content');
+    if (mounted) {
+      setState(() {
+        if (t != null) {
+          _titleController.removeListener(_onTitleChanged);
+          _titleController.text = t;
+          _titleController.addListener(_onTitleChanged);
+        }
+        if (c != null) {
+          _contentController.removeListener(_onContentChanged);
+          _contentController.text = c;
+          _contentController.addListener(_onContentChanged);
+        }
+      });
+    }
   }
 
   @override
@@ -166,6 +196,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                       if (confirmed == true && mounted) {
                         final navigator = Navigator.of(context);
                         await ref.read(notesRepositoryProvider).deleteNote(existingNote.id);
+                        await SessionRestore.clearDraftValues('note');
                         navigator.pop();
                       }
                     },
@@ -294,6 +325,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                                 folderId: Value(folderId),
                               ));
                             }
+                            await SessionRestore.clearDraftValues('note');
                             navigator.pop();
                           } finally {
                             if (mounted) setState(() => _isSaving = false);

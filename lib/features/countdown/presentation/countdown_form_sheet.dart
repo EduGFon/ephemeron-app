@@ -80,6 +80,31 @@ class _CountdownFormSheetState extends ConsumerState<CountdownFormSheet> {
   void initState() {
     super.initState();
     SessionRestore.saveOpenMenu('countdown', entityId: widget.existingCountdown?.id, extra: widget.type.name);
+    _titleController.addListener(_onTitleChanged);
+    _restoreDrafts();
+  }
+
+  void _onTitleChanged() {
+    SessionRestore.saveDraftValue('countdown', 'title', _titleController.text);
+  }
+
+  void _restoreDrafts() async {
+    final t = await SessionRestore.getDraftValue('countdown', 'title');
+    final td = await SessionRestore.getDraftValue('countdown', 'targetDate');
+    final sa = await SessionRestore.getDraftValue('countdown', 'showAge');
+    final iy = await SessionRestore.getDraftValue('countdown', 'isYearly');
+    if (mounted) {
+      setState(() {
+        if (t != null) {
+          _titleController.removeListener(_onTitleChanged);
+          _titleController.text = t;
+          _titleController.addListener(_onTitleChanged);
+        }
+        if (td != null) _targetDate = DateTime.tryParse(td) ?? _targetDate;
+        if (sa != null) _showAge = sa == 'true';
+        if (iy != null) _isYearly = iy == 'true';
+      });
+    }
   }
 
   @override
@@ -147,6 +172,7 @@ class _CountdownFormSheetState extends ConsumerState<CountdownFormSheet> {
                         icon: Icon(Icons.delete_outline, color: Colors.redAccent.withValues(alpha: 0.8)),
                         onPressed: () async {
                           await ref.read(countdownRepositoryProvider).deleteCountdown(widget.existingCountdown!.id);
+                          await SessionRestore.clearDraftValues('countdown');
                           if (context.mounted) Navigator.pop(context);
                         },
                       ),
@@ -201,7 +227,10 @@ class _CountdownFormSheetState extends ConsumerState<CountdownFormSheet> {
                               ),
                               activeThumbColor: palette.primary,
                               value: _showAge,
-                              onChanged: (value) => setState(() => _showAge = value),
+                              onChanged: (value) {
+                                setState(() => _showAge = value);
+                                SessionRestore.saveDraftValue('countdown', 'showAge', value.toString());
+                              },
                             ),
                           ),
                         if (widget.type == CountdownType.custom)
@@ -212,7 +241,10 @@ class _CountdownFormSheetState extends ConsumerState<CountdownFormSheet> {
                               title: Text('Repeats yearly', style: TextStyle(color: palette.text, fontWeight: FontWeight.w500)),
                               activeThumbColor: palette.primary,
                               value: _isYearly,
-                              onChanged: (value) => setState(() => _isYearly = value),
+                              onChanged: (value) {
+                                setState(() => _isYearly = value);
+                                SessionRestore.saveDraftValue('countdown', 'isYearly', value.toString());
+                              },
                             ),
                           ),
                       ],
@@ -271,7 +303,10 @@ class _CountdownFormSheetState extends ConsumerState<CountdownFormSheet> {
       firstDate: DateTime(1900),
       lastDate: DateTime.now().add(const Duration(days: 365 * 100)),
     );
-    if (date != null) setState(() => _targetDate = date);
+    if (date != null) {
+      setState(() => _targetDate = date);
+      SessionRestore.saveDraftValue('countdown', 'targetDate', date.toIso8601String());
+    }
   }
 
   Future<void> _save() async {
@@ -295,6 +330,7 @@ class _CountdownFormSheetState extends ConsumerState<CountdownFormSheet> {
           showAge: _showAge,
         );
       }
+      await SessionRestore.clearDraftValues('countdown');
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _isSaving = false);

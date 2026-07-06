@@ -86,6 +86,13 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
   late Set<ReminderOffset> _selectedOffsets = {};
   bool _isSaving = false;
 
+  late int _durationMinutes = widget.existingTask?.durationMinutes ?? 30;
+  late TaskRecurrence _recurrence = widget.existingTask != null
+      ? TaskRecurrence.decode(widget.existingTask!.recurrenceRule)
+      : TaskRecurrence.none;
+  late bool _isWontDo = widget.existingTask?.isWontDo ?? false;
+  final TextEditingController _subtaskController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -106,8 +113,88 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
       if (task.reminderOffsetsMinutes != null) {
         _selectedOffsets = _decodeOffsets(task.reminderOffsetsMinutes!).toSet();
       }
+    } else {
+      if (widget.listId == 'smart:today') {
+        _dueDate = DateTime.now();
+      } else if (widget.listId == 'smart:tomorrow') {
+        _dueDate = DateTime.now().add(const Duration(days: 1));
+      } else if (widget.listId == 'smart:next7Days') {
+        _dueDate = DateTime.now();
+      } else if (widget.listId.startsWith('custom_smart:')) {
+        final id = widget.listId.substring(13);
+        final smartLists = ref.read(customSmartListsProvider).value;
+        if (smartLists != null) {
+          final smartList = smartLists.firstWhere(
+            (s) => s.id == id,
+            orElse: () => null as dynamic,
+          );
+          if (smartList != null) {
+            if (smartList.minPriority != null) {
+              _priority = smartList.minPriority!;
+            }
+            final now = DateTime.now();
+            if (smartList.dateFilter == 'today') {
+              _dueDate = now;
+            } else if (smartList.dateFilter == 'tomorrow') {
+              _dueDate = now.add(const Duration(days: 1));
+            } else if (smartList.dateFilter == 'thisWeek' || smartList.dateFilter == 'next7Days') {
+              _dueDate = now;
+            }
+            if (smartList.tagId != null) {
+              final tags = ref.read(allTagsProvider).value;
+              if (tags != null) {
+                final tag = tags.firstWhere(
+                  (t) => t.id == smartList.tagId,
+                  orElse: () => null as dynamic,
+                );
+                if (tag != null) {
+                  _titleController.text = '#${tag.name} ';
+                }
+              }
+            }
+          }
+        }
+      }
     }
     SessionRestore.saveOpenMenu('task', entityId: widget.existingTask?.id, extra: widget.listId);
+    _titleController.addListener(_onTitleChanged);
+    _descriptionController.addListener(_onDescriptionChanged);
+    _restoreDrafts();
+  }
+
+  void _onTitleChanged() {
+    SessionRestore.saveDraftValue('task', 'title', _titleController.text);
+  }
+
+  void _onDescriptionChanged() {
+    SessionRestore.saveDraftValue('task', 'description', _descriptionController.text);
+  }
+
+  void _restoreDrafts() async {
+    final t = await SessionRestore.getDraftValue('task', 'title');
+    final d = await SessionRestore.getDraftValue('task', 'description');
+    final p = await SessionRestore.getDraftValue('task', 'priority');
+    final du = await SessionRestore.getDraftValue('task', 'dueDate');
+    final ht = await SessionRestore.getDraftValue('task', 'dueHasTime');
+    final ap = await SessionRestore.getDraftValue('task', 'alarmPreset');
+    if (mounted) {
+      setState(() {
+        if (t != null) {
+          _titleController.removeListener(_onTitleChanged);
+          _titleController.text = t;
+          _titleController.addListener(_onTitleChanged);
+        }
+        if (d != null) {
+          _descriptionController.removeListener(_onDescriptionChanged);
+          _descriptionController.text = d;
+          _descriptionController.addListener(_onDescriptionChanged);
+        }
+        if (p != null) _priority = int.parse(p);
+        if (du != null) _dueDate = DateTime.tryParse(du);
+        if (ht != null) _dueHasTime = ht == 'true';
+        if (ap != null) _alarmPreset = ap == 'none' ? null : AlarmPreset.values.byName(ap);
+      });
+    }
   }
 
   @override
@@ -117,6 +204,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
     _descriptionController.dispose();
     _descriptionFocusNode.dispose();
     _descriptionTypingTimer?.cancel();
+    _subtaskController.dispose();
     super.dispose();
   }
 
@@ -189,6 +277,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                         onPressed: () async {
                           final navigator = Navigator.of(context);
                           await ref.read(taskRepositoryProvider).softDeleteTask(widget.existingTask!.id);
+                          await SessionRestore.clearDraftValues('task');
                           navigator.pop();
                         },
                       ),
@@ -286,7 +375,10 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                         },
                       ),
                       tooltip: 'Set Priority',
-                      onSelected: (val) => setState(() => _priority = val),
+                      onSelected: (val) {
+                        setState(() => _priority = val);
+                        SessionRestore.saveDraftValue('task', 'priority', val.toString());
+                      },
                       itemBuilder: (ctx) => [
                         PopupMenuItem(value: 3, child: Row(children: [const Icon(Icons.flag_rounded, color: AppColors.priorityHigh), const SizedBox(width: 8), Text('High Priority', style: TextStyle(color: palette.text))])),
                         PopupMenuItem(value: 2, child: Row(children: [const Icon(Icons.flag_rounded, color: AppColors.priorityMedium), const SizedBox(width: 8), Text('Medium Priority', style: TextStyle(color: palette.text))])),
@@ -305,6 +397,18 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                       icon: Icon(Icons.list_alt_rounded, color: palette.text.withValues(alpha: 0.6)),
                       tooltip: 'Insert list token',
                       onPressed: () => _onListIconPressed(context, palette),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        _isWontDo ? Icons.block : Icons.block_flipped,
+                        color: _isWontDo ? Colors.redAccent : palette.text.withValues(alpha: 0.6),
+                      ),
+                      tooltip: "Toggle 'Won't Do'",
+                      onPressed: () {
+                        setState(() {
+                          _isWontDo = !_isWontDo;
+                        });
+                      },
                     ),
                   ],
                 ),
@@ -342,6 +446,109 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                         ),
                     ],
                   ),
+                ],
+
+                if (_isEditing) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Subtasks',
+                    style: TextStyle(color: palette.text, fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ref.watch(subtasksProvider(widget.existingTask!.id)).when(
+                        data: (subtasks) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (subtasks.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Text(
+                                    'No subtasks yet',
+                                    style: TextStyle(color: palette.text.withValues(alpha: 0.4), fontSize: 12),
+                                  ),
+                                ),
+                              ...subtasks.map((subtask) {
+                                return Row(
+                                  children: [
+                                    Checkbox(
+                                      value: subtask.isCompleted,
+                                      activeColor: palette.primary,
+                                      onChanged: (val) {
+                                        if (val == true) {
+                                          ref.read(taskRepositoryProvider).completeTask(subtask.id);
+                                        } else {
+                                          ref.read(taskRepositoryProvider).uncompleteTask(subtask.id);
+                                        }
+                                      },
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        subtask.title,
+                                        style: TextStyle(
+                                          color: subtask.isCompleted ? palette.text.withValues(alpha: 0.4) : palette.text,
+                                          decoration: subtask.isCompleted ? TextDecoration.lineThrough : null,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.delete_outline, color: palette.text.withValues(alpha: 0.4), size: 18),
+                                      onPressed: () => ref.read(taskRepositoryProvider).softDeleteTask(subtask.id),
+                                    ),
+                                  ],
+                                );
+                              }),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _subtaskController,
+                                      style: TextStyle(color: palette.text, fontSize: 13),
+                                      decoration: InputDecoration(
+                                        hintText: 'Add subtask...',
+                                        hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.4)),
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.text.withValues(alpha: 0.1))),
+                                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.primary)),
+                                      ),
+                                      onSubmitted: (value) {
+                                        final text = value.trim();
+                                        if (text.isNotEmpty) {
+                                          ref.read(taskRepositoryProvider).createTask(
+                                                parentTaskId: widget.existingTask!.id,
+                                                listId: widget.existingTask!.listId,
+                                                title: text,
+                                              );
+                                          _subtaskController.clear();
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.add_circle, color: palette.primary, size: 22),
+                                    onPressed: () {
+                                      final text = _subtaskController.text.trim();
+                                      if (text.isNotEmpty) {
+                                        ref.read(taskRepositoryProvider).createTask(
+                                              parentTaskId: widget.existingTask!.id,
+                                              listId: widget.existingTask!.listId,
+                                              title: text,
+                                            );
+                                        _subtaskController.clear();
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                        loading: () => const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
+                        error: (e, s) => Text('Error loading subtasks', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                      ),
                 ],
 
                 const SizedBox(height: 16),
@@ -391,8 +598,11 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
     bool tempHasTime = _dueHasTime;
     AlarmPreset? tempPreset = _alarmPreset;
     Set<ReminderOffset> tempOffsets = Set.from(_selectedOffsets);
+    int tempDuration = _durationMinutes;
+    RecurrenceType tempRecurrenceType = _recurrence.type;
+    List<int> tempRecurrenceWeekdays = List<int>.from(_recurrence.weekdays);
 
-    await showDialog(
+    final res = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return Dialog(
@@ -481,7 +691,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                                   value: tempDate.minute,
                                   style: TextStyle(color: palette.text),
                                   items: [
-                                    for (int m = 0; m < 60; m += 5)
+                                    for (int m = 0; m < 60; m++)
                                       DropdownMenuItem(value: m, child: Text(m.toString().padLeft(2, '0'))),
                                   ],
                                   onChanged: (m) {
@@ -541,6 +751,102 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                               ],
                             ),
                           ],
+                          const Divider(),
+                          // Duration
+                          Row(
+                            children: [
+                              Text('Task Duration', style: TextStyle(color: palette.text, fontSize: 14)),
+                              const Spacer(),
+                              DropdownButton<int>(
+                                dropdownColor: palette.surface,
+                                underline: const SizedBox.shrink(),
+                                style: TextStyle(color: palette.text),
+                                value: tempDuration,
+                                items: const [
+                                  DropdownMenuItem(value: 15, child: Text('15 min')),
+                                  DropdownMenuItem(value: 30, child: Text('30 min')),
+                                  DropdownMenuItem(value: 45, child: Text('45 min')),
+                                  DropdownMenuItem(value: 60, child: Text('1 hour')),
+                                  DropdownMenuItem(value: 90, child: Text('1.5 hours')),
+                                  DropdownMenuItem(value: 120, child: Text('2 hours')),
+                                  DropdownMenuItem(value: 180, child: Text('3 hours')),
+                                  DropdownMenuItem(value: 240, child: Text('4 hours')),
+                                ],
+                                onChanged: (value) => setDlgState(() {
+                                  if (value != null) tempDuration = value;
+                                }),
+                              ),
+                            ],
+                          ),
+                          const Divider(),
+                          // Recurrence
+                          Row(
+                            children: [
+                              Text('Repeat Pattern', style: TextStyle(color: palette.text, fontSize: 14)),
+                              const Spacer(),
+                              DropdownButton<RecurrenceType>(
+                                dropdownColor: palette.surface,
+                                underline: const SizedBox.shrink(),
+                                style: TextStyle(color: palette.text),
+                                value: tempRecurrenceType,
+                                items: const [
+                                  DropdownMenuItem(value: RecurrenceType.none, child: Text('None')),
+                                  DropdownMenuItem(value: RecurrenceType.daily, child: Text('Daily')),
+                                  DropdownMenuItem(value: RecurrenceType.weekly, child: Text('Weekly')),
+                                  DropdownMenuItem(value: RecurrenceType.yearly, child: Text('Yearly')),
+                                ],
+                                onChanged: (value) => setDlgState(() {
+                                  if (value != null) tempRecurrenceType = value;
+                                }),
+                              ),
+                            ],
+                          ),
+                          if (tempRecurrenceType == RecurrenceType.weekly) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                for (int d = 1; d <= 7; d++)
+                                  GestureDetector(
+                                    onTap: () => setDlgState(() {
+                                      if (tempRecurrenceWeekdays.contains(d)) {
+                                        tempRecurrenceWeekdays.remove(d);
+                                      } else {
+                                        tempRecurrenceWeekdays.add(d);
+                                      }
+                                    }),
+                                    child: Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: tempRecurrenceWeekdays.contains(d) ? palette.primary : Colors.transparent,
+                                        border: Border.all(
+                                          color: tempRecurrenceWeekdays.contains(d) ? palette.primary : palette.text.withValues(alpha: 0.2),
+                                        ),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        switch (d) {
+                                          1 => 'M',
+                                          2 => 'T',
+                                          3 => 'W',
+                                          4 => 'T',
+                                          5 => 'F',
+                                          6 => 'S',
+                                          _ => 'S',
+                                        },
+                                        style: TextStyle(
+                                          color: tempRecurrenceWeekdays.contains(d) ? palette.background : palette.text,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
                           const SizedBox(height: 16),
                           FilledButton(
                             style: FilledButton.styleFrom(backgroundColor: palette.primary, foregroundColor: palette.background),
@@ -561,12 +867,24 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
       },
     );
 
-    setState(() {
-      _dueDate = tempDate;
-      _dueHasTime = tempHasTime;
-      _alarmPreset = tempPreset;
-      _selectedOffsets = tempOffsets;
-    });
+    if (res == true) {
+      setState(() {
+        _dueDate = tempDate;
+        _dueHasTime = tempHasTime;
+        _alarmPreset = tempPreset;
+        _selectedOffsets = tempOffsets;
+        _durationMinutes = tempDuration;
+        _recurrence = TaskRecurrence(type: tempRecurrenceType, weekdays: tempRecurrenceWeekdays);
+      });
+
+      if (tempDate != null) {
+        SessionRestore.saveDraftValue('task', 'dueDate', tempDate.toIso8601String());
+      } else {
+        SessionRestore.saveDraftValue('task', 'dueDate', 'none');
+      }
+      SessionRestore.saveDraftValue('task', 'dueHasTime', tempHasTime.toString());
+      SessionRestore.saveDraftValue('task', 'alarmPreset', (tempPreset ?? AlarmPreset.light).name);
+    }
   }
 
   // ── Flying menu: Tag search & creation dialog ──
@@ -834,22 +1152,34 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
           priority: _priority,
           dueDate: Value(_dueDate),
           dueHasTime: _dueHasTime,
+          recurrence: _recurrence,
+          durationMinutes: _durationMinutes,
+          isWontDo: _isWontDo,
           alarmPreset: Value(_alarmPreset),
           reminderOffsets: _selectedOffsets.toList(),
         );
       } else {
+        var targetListId = widget.listId;
+        if (targetListId.startsWith('smart:') || targetListId.startsWith('custom_smart:')) {
+          final lists = ref.read(listsProvider).value ?? [];
+          final inbox = lists.firstWhere((l) => l.isInbox, orElse: () => lists.first);
+          targetListId = inbox.id;
+        }
         await repo.createTask(
-          listId: widget.listId,
+          listId: targetListId,
           title: title,
           description: description.isEmpty ? null : description,
           priority: _priority,
           dueDate: _dueDate,
           dueHasTime: _dueHasTime,
-          recurrence: TaskRecurrence.none,
+          recurrence: _recurrence,
+          durationMinutes: _durationMinutes,
+          isWontDo: _isWontDo,
           alarmPreset: _alarmPreset,
           reminderOffsets: _selectedOffsets.toList(),
         );
       }
+      await SessionRestore.clearDraftValues('task');
       navigator.pop();
     } finally {
       if (mounted) setState(() => _isSaving = false);
