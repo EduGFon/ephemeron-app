@@ -133,7 +133,10 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                       IconButton(
                         icon: Icon(Icons.delete_outline, color: Colors.redAccent.withValues(alpha: 0.8)),
                         onPressed: () async {
-                          await ref.read(calendarRepositoryProvider).deleteEvent(widget.existingEvent!.id);
+                          await ref.read(calendarRepositoryProvider).deleteEvent(
+                            widget.existingEvent!.id,
+                            calendarId: widget.existingEvent!.calendarId,
+                          );
                           ref.invalidate(monthEventsProvider(DateTime(_start.year, _start.month, 1)));
                           if (context.mounted) Navigator.pop(context);
                         },
@@ -325,6 +328,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
 
     final event = CalendarEvent(
       id: widget.existingEvent?.id ?? '',
+      calendarId: widget.existingEvent?.calendarId ?? 'primary',
       title: _titleController.text.trim(),
       description: description.isEmpty ? null : description,
       location: location.isEmpty ? null : location,

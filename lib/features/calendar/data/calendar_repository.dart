@@ -90,23 +90,51 @@ class CalendarRepository {
     }
 
     final api = await _api();
-    final result = await api.events.list(
-      'primary',
-      timeMin: rangeStart.toUtc(),
-      timeMax: rangeEnd.toUtc(),
-      singleEvents: true, // expands recurring events into instances
-      orderBy: 'startTime',
-    );
+    final calendarList = await api.calendarList.list();
+    final calendars = calendarList.items ?? [];
 
-    final events = (result.items ?? []).map(CalendarEvent.fromGoogle).toList();
+    if (calendars.isEmpty) {
+      final result = await api.events.list(
+        'primary',
+        timeMin: rangeStart.toUtc(),
+        timeMax: rangeEnd.toUtc(),
+        singleEvents: true,
+        orderBy: 'startTime',
+      );
+      final events = (result.items ?? []).map((e) => CalendarEvent.fromGoogle(e, calendarId: 'primary')).toList();
+      await _scheduleEventAlarms(events);
+      return events;
+    }
+
+    final futures = calendars.map((cal) async {
+      final calId = cal.id;
+      if (calId == null) return <CalendarEvent>[];
+      try {
+        final result = await api.events.list(
+          calId,
+          timeMin: rangeStart.toUtc(),
+          timeMax: rangeEnd.toUtc(),
+          singleEvents: true,
+          orderBy: 'startTime',
+        );
+        return (result.items ?? []).map((e) => CalendarEvent.fromGoogle(e, calendarId: calId)).toList();
+      } catch (_) {
+        return <CalendarEvent>[];
+      }
+    });
+
+    final results = await Future.wait(futures);
+    final events = results.expand((e) => e).toList();
+    events.sort((a, b) => a.start.compareTo(b.start));
+
     await _scheduleEventAlarms(events);
     return events;
   }
 
   Future<CalendarEvent> createEvent(CalendarEvent event) async {
     final api = await _api();
-    final created = await api.events.insert(event.toGoogle(), 'primary');
-    final result = CalendarEvent.fromGoogle(created);
+    final created = await api.events.insert(event.toGoogle(), event.calendarId);
+    final result = CalendarEvent.fromGoogle(created, calendarId: event.calendarId);
     await _scheduleEventAlarms([result]);
     return result;
   }
@@ -115,17 +143,17 @@ class CalendarRepository {
     final api = await _api();
     final updated = await api.events.update(
       event.toGoogle(),
-      'primary',
+      event.calendarId,
       event.id,
     );
-    final result = CalendarEvent.fromGoogle(updated);
+    final result = CalendarEvent.fromGoogle(updated, calendarId: event.calendarId);
     await _scheduleEventAlarms([result]);
     return result;
   }
 
-  Future<void> deleteEvent(String eventId) async {
+  Future<void> deleteEvent(String eventId, {String calendarId = 'primary'}) async {
     final api = await _api();
-    await api.events.delete('primary', eventId);
+    await api.events.delete(calendarId, eventId);
     // Cancel whatever alarms were computed for this event last time it
     // was listed — safe even if none were actually scheduled, since
     // AlarmScheduler.cancelByIds no-ops on IDs that aren't pending.

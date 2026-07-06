@@ -32,6 +32,7 @@ class GoogleEventColor {
 class CalendarEvent {
   const CalendarEvent({
     required this.id,
+    this.calendarId = 'primary',
     required this.title,
     this.description,
     this.location,
@@ -45,6 +46,7 @@ class CalendarEvent {
   });
 
   final String id;
+  final String calendarId;
   final String title;
   final String? description;
   final String? location;
@@ -62,7 +64,7 @@ class CalendarEvent {
   final List<String> tags;
   final bool isDeleted;
 
-  static CalendarEvent fromGoogle(gcal.Event event) {
+  static CalendarEvent fromGoogle(gcal.Event event, {String calendarId = 'primary'}) {
     final startDateTime = event.start?.dateTime;
     final startDate = event.start?.date;
     final endDateTime = event.end?.dateTime;
@@ -71,6 +73,7 @@ class CalendarEvent {
 
     return CalendarEvent(
       id: event.id ?? '',
+      calendarId: calendarId,
       title: event.summary ?? '(No title)',
       description: event.description,
       location: event.location,
