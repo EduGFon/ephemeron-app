@@ -71,6 +71,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
             Expanded(
               child: TextField(
                 controller: _titleController,
+                autofocus: widget.existingNote == null,
                 style: TextStyle(
                   fontFamily: 'Fraunces',
                   fontSize: 22,

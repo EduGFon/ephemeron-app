@@ -116,15 +116,29 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      child: switch (_target) {
-        QuickAddTarget.task => TaskFormSheet(listId: defaultListId, unifiedHeader: header),
-        QuickAddTarget.event => EventFormSheet(unifiedHeader: header),
-        QuickAddTarget.habit => HabitFormSheet(unifiedHeader: header),
-        QuickAddTarget.countdown => CountdownFormSheet(type: CountdownType.custom, unifiedHeader: header),
-        QuickAddTarget.note => NoteFormSheet(unifiedHeader: header),
-        _ => const SizedBox.shrink(),
-      },
+      curve: Curves.easeInOut,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: switch (_target) {
+          QuickAddTarget.task => TaskFormSheet(key: const ValueKey('task'), listId: defaultListId, unifiedHeader: header),
+          QuickAddTarget.event => EventFormSheet(key: const ValueKey('event'), unifiedHeader: header),
+          QuickAddTarget.habit => HabitFormSheet(key: const ValueKey('habit'), unifiedHeader: header),
+          QuickAddTarget.countdown => CountdownFormSheet(key: const ValueKey('countdown'), type: CountdownType.custom, unifiedHeader: header),
+          QuickAddTarget.note => NoteFormSheet(key: const ValueKey('note'), unifiedHeader: header),
+          _ => const SizedBox.shrink(key: ValueKey('empty')),
+        },
+      ),
     );
   }
 }
