@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   /// changes in a later build step (e.g. when Habits gets typed frequency
   /// columns instead of the opaque JSON blob in the skeleton).
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -97,6 +97,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 11) {
             await m.createTable(cachedCalendarEvents);
+          }
+          if (from < 12) {
+            await m.addColumn(tasks, tasks.sortOrder);
           }
         },
       );

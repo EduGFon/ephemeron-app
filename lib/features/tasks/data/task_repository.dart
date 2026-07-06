@@ -572,4 +572,14 @@ class TaskRepository {
       }
     }
   }
+
+  /// Updates the sortOrder of tasks in the transaction to match custom order.
+  Future<void> updateTaskSortOrders(List<String> taskIds) async {
+    await _db.transaction(() async {
+      for (int i = 0; i < taskIds.length; i++) {
+        await (_db.update(_db.tasks)..where((t) => t.id.equals(taskIds[i])))
+            .write(TasksCompanion(sortOrder: Value(i)));
+      }
+    });
+  }
 }

@@ -85,6 +85,7 @@ class Tasks extends Table {
   // when these reminders were scheduled — needed to cancel/reschedule
   // them without recomputing hashes that could drift out of sync.
   TextColumn get scheduledAlarmIds => text().nullable()();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt =>
       dateTime().clientDefault(() => DateTime.now())();
   DateTimeColumn get updatedAt =>

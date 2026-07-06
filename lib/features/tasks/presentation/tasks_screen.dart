@@ -24,6 +24,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
   Widget build(BuildContext context) {
     final listsAsync = ref.watch(listsProvider);
     final palette = ref.watch(themeEngineProvider);
+    final sortOption = ref.watch(taskSortOptionProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -83,6 +84,43 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
           loading: () => Text('Tasks', style: TextStyle(color: palette.text, fontWeight: FontWeight.bold, fontSize: 24)),
           error: (_, __) => Text('Tasks', style: TextStyle(color: palette.text, fontWeight: FontWeight.bold, fontSize: 24)),
         ),
+        actions: [
+          // ── Hamburger Sort/Order Menu ──
+          Theme(
+            data: Theme.of(context).copyWith(
+              popupMenuTheme: PopupMenuThemeData(
+                color: palette.surface.withValues(alpha: 0.95),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                textStyle: TextStyle(color: palette.text),
+              ),
+            ),
+            child: PopupMenuButton<TaskSortOption>(
+              icon: Icon(Icons.menu, color: palette.text),
+              tooltip: 'Sorting options',
+              onSelected: (option) {
+                ref.read(taskSortOptionProvider.notifier).setSortOption(option);
+              },
+              itemBuilder: (context) => [
+                for (final opt in TaskSortOption.values)
+                  PopupMenuItem(
+                    value: opt,
+                    child: Row(
+                      children: [
+                        Icon(
+                          opt == sortOption ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          color: opt == sortOption ? palette.primary : palette.text.withValues(alpha: 0.4),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(opt.label, style: TextStyle(color: palette.text, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: listsAsync.when(
         data: (lists) {
@@ -161,32 +199,100 @@ class _TaskListView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tasksAsync = ref.watch(tasksInListProvider(listId));
+    final pendingAsync = ref.watch(pendingTasksInListProvider(listId));
+    final completedAsync = ref.watch(completedTasksInListProvider(listId));
 
-    return tasksAsync.when(
-      data: (tasks) {
-        if (tasks.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    return pendingAsync.when(
+      data: (pendingTasks) {
+        return completedAsync.when(
+          data: (completedTasks) {
+            if (pendingTasks.isEmpty && completedTasks.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_outline, size: 64, color: palette.text.withValues(alpha: 0.1)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No tasks yet',
+                      style: TextStyle(color: palette.text.withValues(alpha: 0.5), fontSize: 16),
+                    ),
+                  ],
+                ).animate().fadeIn(),
+              );
+            }
+
+            return ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               children: [
-                Icon(Icons.check_circle_outline, size: 64, color: palette.text.withValues(alpha: 0.1)),
-                const SizedBox(height: 16),
-                Text(
-                  'No tasks yet',
-                  style: TextStyle(color: palette.text.withValues(alpha: 0.5), fontSize: 16),
-                ),
+                if (pendingTasks.isNotEmpty) ...[
+                  // ── Drag and Drop Reorderable List ──
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: pendingTasks.length,
+                    onReorder: (oldIdx, newIdx) async {
+                      if (oldIdx < newIdx) {
+                        newIdx -= 1;
+                      }
+                      final mutableList = List<Task>.from(pendingTasks);
+                      final item = mutableList.removeAt(oldIdx);
+                      mutableList.insert(newIdx, item);
+
+                      // Update provider sort option to custom
+                      ref.read(taskSortOptionProvider.notifier).setSortOption(TaskSortOption.custom);
+                      
+                      // Save custom sort order in database
+                      final ids = mutableList.map((t) => t.id).toList();
+                      await ref.read(taskRepositoryProvider).updateTaskSortOrders(ids);
+                    },
+                    itemBuilder: (context, index) {
+                      final task = pendingTasks[index];
+                      return Padding(
+                        key: ValueKey(task.id),
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: _TaskTile(task: task, palette: palette),
+                      );
+                    },
+                  ),
+                ],
+                if (completedTasks.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  // ── Expandable Completed Section ──
+                  Theme(
+                    data: Theme.of(context).copyWith(
+                      dividerColor: Colors.transparent,
+                      expansionTileTheme: ExpansionTileThemeData(
+                        textColor: palette.primary,
+                        iconColor: palette.primary,
+                        collapsedIconColor: palette.text.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: ExpansionTile(
+                      title: Text(
+                        'Completed (${completedTasks.length})',
+                        style: TextStyle(
+                          color: palette.text.withValues(alpha: 0.6),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      childrenPadding: EdgeInsets.zero,
+                      children: [
+                        for (final task in completedTasks)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: _TaskTile(task: task, palette: palette),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ).animate().fadeIn(),
-          );
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          itemCount: tasks.length,
-          itemBuilder: (context, index) => Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: _TaskTile(task: tasks[index], palette: palette).animate().fadeIn(delay: (index * 40).ms).slideX(begin: 0.1),
-          ),
+            );
+          },
+          loading: () => Center(child: CircularProgressIndicator(color: palette.primary)),
+          error: (error, _) => Center(child: Text('Could not load completed tasks: $error', style: TextStyle(color: palette.text))),
         );
       },
       loading: () => Center(child: CircularProgressIndicator(color: palette.primary)),
@@ -210,6 +316,9 @@ class _TaskTile extends ConsumerWidget {
       1 => AppColors.priorityLow,
       _ => palette.text.withValues(alpha: 0.2),
     };
+
+    final isLate = !task.isCompleted && task.dueDate != null && task.dueDate!.isBefore(DateTime.now());
+    final dueDateColor = isLate ? Colors.redAccent : palette.text.withValues(alpha: 0.5);
 
     return Dismissible(
       key: ValueKey(task.id),
@@ -274,13 +383,18 @@ class _TaskTile extends ConsumerWidget {
                       padding: const EdgeInsets.only(top: 4.0),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today, size: 12, color: palette.text.withValues(alpha: 0.5)),
+                          Icon(
+                            isLate ? Icons.warning_amber_rounded : Icons.calendar_today,
+                            size: 12,
+                            color: dueDateColor,
+                          ),
                           const SizedBox(width: 4),
                           Text(
-                            _formatDue(task.dueDate!, task.dueHasTime),
+                            _formatDue(task.dueDate!, task.dueHasTime) + (isLate ? ' (Overdue)' : ''),
                             style: TextStyle(
-                              color: palette.text.withValues(alpha: 0.5),
+                              color: dueDateColor,
                               fontSize: 12,
+                              fontWeight: isLate ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
                         ],

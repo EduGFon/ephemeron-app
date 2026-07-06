@@ -16,8 +16,8 @@ class MatrixScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = ref.watch(themeEngineProvider);
-    final showCompleted = ref.watch(showCompletedMatrixTasksProvider);
-    final isLoaded = ref.watch(allPendingTasksProvider).hasValue;
+    final sortOption = ref.watch(taskSortOptionProvider);
+    final isLoaded = ref.watch(allActiveTasksProvider).hasValue;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -26,12 +26,39 @@ class MatrixScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(showCompleted ? Icons.check_circle : Icons.check_circle_outline),
-            tooltip: showCompleted ? 'Hide completed' : 'Show completed',
-            onPressed: () {
-              ref.read(showCompletedMatrixTasksProvider.notifier).toggle();
-            },
+          // ── Hamburger Sort/Order Menu ──
+          Theme(
+            data: Theme.of(context).copyWith(
+              popupMenuTheme: PopupMenuThemeData(
+                color: palette.surface.withValues(alpha: 0.95),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                textStyle: TextStyle(color: palette.text),
+              ),
+            ),
+            child: PopupMenuButton<TaskSortOption>(
+              icon: Icon(Icons.menu, color: palette.text),
+              tooltip: 'Sorting options',
+              onSelected: (option) {
+                ref.read(taskSortOptionProvider.notifier).setSortOption(option);
+              },
+              itemBuilder: (context) => [
+                for (final opt in TaskSortOption.values)
+                  PopupMenuItem(
+                    value: opt,
+                    child: Row(
+                      children: [
+                        Icon(
+                          opt == sortOption ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          color: opt == sortOption ? palette.primary : palette.text.withValues(alpha: 0.4),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(opt.label, style: TextStyle(color: palette.text, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(width: 8),
         ],
@@ -81,142 +108,199 @@ class _QuadrantWidget extends ConsumerStatefulWidget {
 class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
   @override
   Widget build(BuildContext context) {
-    final tasks = ref.watch(matrixTasksProvider(widget.quadrant));
+    final pendingTasks = ref.watch(pendingMatrixTasksProvider(widget.quadrant));
+    final completedTasks = ref.watch(completedMatrixTasksProvider(widget.quadrant));
     final color = widget.quadrant.color;
+    final totalCount = pendingTasks.length + completedTasks.length;
 
     return Container(
-        decoration: BoxDecoration(
-          color: widget.palette.surface.withValues(alpha: widget.palette.isAmoled ? 1.0 : 0.5),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: color.withValues(alpha: 0.3),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+      decoration: BoxDecoration(
+        color: widget.palette.surface.withValues(alpha: widget.palette.isAmoled ? 1.0 : 0.5),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 1.5,
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.quadrant.label,
-                          style: TextStyle(
-                            color: color,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.quadrant.label,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$totalCount',
+                        style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.quadrant.description,
+                  style: TextStyle(color: widget.palette.text.withValues(alpha: 0.6), fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: (pendingTasks.isEmpty && completedTasks.isEmpty)
+                      ? Center(
+                          child: Icon(
+                            Icons.task_alt,
+                            color: color.withValues(alpha: 0.2),
+                            size: 48,
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${tasks.length}',
-                          style: TextStyle(color: color, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.quadrant.description,
-                    style: TextStyle(color: widget.palette.text.withValues(alpha: 0.6), fontSize: 12),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: tasks.isEmpty
-                        ? Center(
-                            child: Icon(
-                              Icons.task_alt,
-                              color: color.withValues(alpha: 0.2),
-                              size: 48,
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: tasks.length,
-                            physics: const BouncingScrollPhysics(),
-                            itemBuilder: (context, index) {
-                              final task = tasks[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8.0),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                        )
+                      : ListView(
+                          physics: const BouncingScrollPhysics(),
+                          children: [
+                            if (pendingTasks.isNotEmpty)
+                              ReorderableListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: pendingTasks.length,
+                                onReorder: (oldIdx, newIdx) async {
+                                  if (oldIdx < newIdx) {
+                                    newIdx -= 1;
+                                  }
+                                  final mutableList = List<Task>.from(pendingTasks);
+                                  final item = mutableList.removeAt(oldIdx);
+                                  mutableList.insert(newIdx, item);
+
+                                  ref.read(taskSortOptionProvider.notifier).setSortOption(TaskSortOption.custom);
+                                  
+                                  final ids = mutableList.map((t) => t.id).toList();
+                                  await ref.read(taskRepositoryProvider).updateTaskSortOrders(ids);
+                                },
+                                itemBuilder: (context, index) {
+                                  final task = pendingTasks[index];
+                                  return Padding(
+                                    key: ValueKey(task.id),
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: _buildTaskRow(context, ref, task),
+                                  );
+                                },
+                              ),
+                            if (completedTasks.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Theme(
+                                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                child: ExpansionTile(
+                                  title: Text(
+                                    'Completed (${completedTasks.length})',
+                                    style: TextStyle(
+                                      color: widget.palette.text.withValues(alpha: 0.5),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  tilePadding: EdgeInsets.zero,
+                                  childrenPadding: EdgeInsets.zero,
                                   children: [
-                                    GestureDetector(
-                                      onTap: () {
-                                        final repo = ref.read(taskRepositoryProvider);
-                                        if (task.isCompleted) {
-                                          repo.uncompleteTask(task.id);
-                                        } else {
-                                          repo.completeTask(task.id);
-                                        }
-                                      },
-                                      child: Container(
-                                        width: 16,
-                                        height: 16,
-                                        margin: const EdgeInsets.only(top: 1, right: 8),
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: task.isCompleted ? widget.palette.text.withValues(alpha: 0.5) : color.withValues(alpha: 0.8), 
-                                            width: 1.5,
-                                          ),
-                                          color: task.isCompleted ? widget.palette.text.withValues(alpha: 0.5) : Colors.transparent,
-                                        ),
-                                        child: task.isCompleted 
-                                            ? Icon(Icons.check, size: 10, color: widget.palette.background)
-                                            : null,
+                                    for (final task in completedTasks)
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        child: _buildTaskRow(context, ref, task),
                                       ),
-                                    ),
-                                    Expanded(
-                                      child: GestureDetector(
-                                        onTap: () => showTaskFormSheet(
-                                          context,
-                                          listId: task.listId,
-                                          existingTask: task,
-                                        ),
-                                        child: Text(
-                                          task.title,
-                                          style: TextStyle(
-                                            color: task.isCompleted ? widget.palette.text.withValues(alpha: 0.5) : widget.palette.text,
-                                            fontSize: 13,
-                                            decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ),
                                   ],
                                 ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
+                              ),
+                            ],
+                          ],
+                        ),
+                ),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _buildTaskRow(BuildContext context, WidgetRef ref, Task task) {
+    final color = widget.quadrant.color;
+    final isLate = !task.isCompleted && task.dueDate != null && task.dueDate!.isBefore(DateTime.now());
+    final titleColor = isLate ? Colors.redAccent : (task.isCompleted ? widget.palette.text.withValues(alpha: 0.5) : widget.palette.text);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () {
+            final repo = ref.read(taskRepositoryProvider);
+            if (task.isCompleted) {
+              repo.uncompleteTask(task.id);
+            } else {
+              repo.completeTask(task.id);
+            }
+          },
+          child: Container(
+            width: 16,
+            height: 16,
+            margin: const EdgeInsets.only(top: 1, right: 8),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: task.isCompleted ? widget.palette.text.withValues(alpha: 0.5) : (isLate ? Colors.redAccent : color.withValues(alpha: 0.8)), 
+                width: 1.5,
+              ),
+              color: task.isCompleted ? widget.palette.text.withValues(alpha: 0.5) : Colors.transparent,
+            ),
+            child: task.isCompleted 
+                ? Icon(Icons.check, size: 10, color: widget.palette.background)
+                : null,
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => showTaskFormSheet(
+              context,
+              listId: task.listId,
+              existingTask: task,
+            ),
+            child: Text(
+              task.title + (isLate ? ' (Late)' : ''),
+              style: TextStyle(
+                color: titleColor,
+                fontSize: 13,
+                fontWeight: isLate ? FontWeight.bold : FontWeight.normal,
+                decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

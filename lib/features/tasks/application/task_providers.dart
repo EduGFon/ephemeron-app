@@ -68,3 +68,81 @@ final taskTagsProvider = StreamProvider.family<List<Tag>, String>((
 ) {
   return ref.watch(taskRepositoryProvider).watchTagsForTask(taskId);
 });
+
+enum TaskSortOption {
+  priority,
+  dueDate,
+  createdAt,
+  custom;
+
+  String get label {
+    switch (this) {
+      case TaskSortOption.priority: return 'Priority';
+      case TaskSortOption.dueDate: return 'Due Date';
+      case TaskSortOption.createdAt: return 'Creation Date';
+      case TaskSortOption.custom: return 'Custom Order';
+    }
+  }
+}
+
+class TaskSortOptionNotifier extends Notifier<TaskSortOption> {
+  @override
+  TaskSortOption build() => TaskSortOption.priority;
+
+  void setSortOption(TaskSortOption option) {
+    state = option;
+  }
+}
+
+final taskSortOptionProvider = NotifierProvider<TaskSortOptionNotifier, TaskSortOption>(() {
+  return TaskSortOptionNotifier();
+});
+
+final pendingTasksInListProvider = Provider.family<AsyncValue<List<Task>>, String>((ref, listId) {
+  final tasksAsync = ref.watch(tasksInListProvider(listId));
+  final sortOption = ref.watch(taskSortOptionProvider);
+
+  return tasksAsync.whenData((tasks) {
+    final pending = tasks.where((t) => !t.isCompleted).toList();
+    
+    switch (sortOption) {
+      case TaskSortOption.priority:
+        pending.sort((a, b) {
+          final pComp = b.priority.compareTo(a.priority); // high first
+          if (pComp != 0) return pComp;
+          if (a.dueDate == null && b.dueDate == null) return a.createdAt.compareTo(b.createdAt);
+          if (a.dueDate == null) return 1;
+          if (b.dueDate == null) return -1;
+          return a.dueDate!.compareTo(b.dueDate!);
+        });
+      case TaskSortOption.dueDate:
+        pending.sort((a, b) {
+          if (a.dueDate == null && b.dueDate == null) return b.priority.compareTo(a.priority);
+          if (a.dueDate == null) return 1;
+          if (b.dueDate == null) return -1;
+          final dComp = a.dueDate!.compareTo(b.dueDate!);
+          if (dComp != 0) return dComp;
+          return b.priority.compareTo(a.priority);
+        });
+      case TaskSortOption.createdAt:
+        pending.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // newest first
+      case TaskSortOption.custom:
+        pending.sort((a, b) => a.sortOrder.compareTo(b.sortOrder)); // ascending sortOrder
+    }
+    return pending;
+  });
+});
+
+final completedTasksInListProvider = Provider.family<AsyncValue<List<Task>>, String>((ref, listId) {
+  final tasksAsync = ref.watch(tasksInListProvider(listId));
+  return tasksAsync.whenData((tasks) {
+    final completed = tasks.where((t) => t.isCompleted).toList();
+    completed.sort((a, b) {
+      final ca = a.completedAt ?? a.updatedAt;
+      final cb = b.completedAt ?? b.updatedAt;
+      return cb.compareTo(ca); // last completed comes first
+    });
+    return completed;
+  });
+});
+
