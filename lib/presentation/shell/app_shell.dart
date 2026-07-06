@@ -33,7 +33,7 @@ class AppShell extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent, // Background handled by PremiumBackground
-      extendBody: true, // Content flows under the transparent navigation bar
+      extendBody: false, // Content is padded to fit above the bottom navigation bar
       body: navigationShell,
       floatingActionButton: showQuickAdd
           ? Container(

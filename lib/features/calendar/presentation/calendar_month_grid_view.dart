@@ -129,6 +129,12 @@ class CalendarMonthGridView extends ConsumerWidget {
       return eventDay == targetDay;
     }).toList();
 
+    final availableEventsHeight = height - 24.0;
+    final maxEvents = (availableEventsHeight / 14.5).floor();
+    final maxFit = maxEvents < 1 ? 1 : maxEvents;
+    final showMore = dayEvents.length > maxFit;
+    final displayCount = showMore ? maxFit - 1 : dayEvents.length;
+
     // Format date text: display month abbreviation on first day (e.g. "Jul 1")
     String dateText = '${day.day}';
     if (day.day == 1) {
@@ -201,13 +207,13 @@ class CalendarMonthGridView extends ConsumerWidget {
                 child: ListView.builder(
                   padding: EdgeInsets.zero,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: dayEvents.length > 3 ? 3 : dayEvents.length,
+                  itemCount: showMore ? displayCount + 1 : displayCount,
                   itemBuilder: (context, index) {
-                    if (index == 2 && dayEvents.length > 3) {
+                    if (showMore && index == displayCount) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
                         child: Text(
-                          '+${dayEvents.length - 2} more',
+                          '+${dayEvents.length - displayCount} more',
                           style: TextStyle(
                             color: palette.text.withValues(alpha: 0.4),
                             fontSize: 9,
