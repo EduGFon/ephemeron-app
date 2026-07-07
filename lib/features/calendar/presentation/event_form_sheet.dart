@@ -21,6 +21,7 @@ import '../../notes/application/notes_providers.dart';
 import '../../tags/presentation/tag_autocomplete_field.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_event.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 /// Google Calendar description hard cap (bytes before base64 encoding overhead).
 /// Anything beyond this is stored locally in a Note only.
@@ -330,7 +331,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
+        child: GlassmorphicWrapper(
           filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: Padding(
             padding: const EdgeInsets.all(24),

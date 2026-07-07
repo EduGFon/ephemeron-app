@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
@@ -13,6 +12,7 @@ import '../domain/habit_frequency.dart';
 import '../domain/habit_goal_unit.dart';
 import '../domain/habit_section.dart';
 import '../../../core/settings/session_restore.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 Future<void> showHabitFormSheet(BuildContext context, {Habit? existingHabit, String? initialName}) {
   return showGeneralDialog<void>(
@@ -201,7 +201,7 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
+        child: GlassmorphicWrapper(
           filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: Padding(
             padding: const EdgeInsets.all(24),

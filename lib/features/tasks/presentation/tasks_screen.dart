@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
@@ -9,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/local/database.dart';
 import '../application/task_providers.dart';
 import 'task_form_sheet.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 class TasksScreen extends ConsumerStatefulWidget {
   const TasksScreen({super.key});
@@ -514,7 +514,7 @@ class _TaskListView extends ConsumerWidget {
                         style: TextStyle(color: palette.text.withValues(alpha: 0.5), fontSize: 16),
                       ),
                     ],
-                  ).animate().fadeIn(),
+                  ),
                 );
               }
               return ListView.builder(
@@ -542,7 +542,7 @@ class _TaskListView extends ConsumerWidget {
                       style: TextStyle(color: palette.text.withValues(alpha: 0.5), fontSize: 16),
                     ),
                   ],
-                ).animate().fadeIn(),
+                ),
               );
             }
 
@@ -697,7 +697,7 @@ class _TaskTile extends ConsumerWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
+          child: GlassmorphicWrapper(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

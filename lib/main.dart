@@ -7,7 +7,7 @@ import 'core/settings/power_saving_manager.dart';
 import 'core/settings/shared_preferences_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_engine_provider.dart';
-import 'core/theme/premium_background.dart';
+
 import 'features/alarms/application/alarm_action_manager_provider.dart';
 import 'features/alarms/application/alarm_scheduler_provider.dart';
 import 'features/auth/google/google_auth_provider.dart';
@@ -60,17 +60,7 @@ class EphemeronApp extends ConsumerWidget {
       themeMode: ThemeMode.light, // We control the palette directly now
       theme: AppTheme.build(palette, reducedMotion: isReducedMotion),
       routerConfig: router,
-      builder: (context, child) {
-        return Stack(
-          children: [
-            // Premium background layer
-            Positioned.fill(
-              child: PremiumBackground(palette: palette, isReducedMotion: isReducedMotion),
-            ),
-            if (child != null) child,
-          ],
-        );
-      },
+      builder: (context, child) => child ?? const SizedBox.shrink(),
     );
   }
 }

@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
@@ -11,6 +10,7 @@ import '../data/habit_repository.dart';
 import '../domain/habit_metrics.dart';
 import '../domain/habit_section.dart';
 import 'habit_form_sheet.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 class HabitsScreen extends ConsumerWidget {
   const HabitsScreen({super.key});
@@ -41,7 +41,7 @@ class HabitsScreen extends ConsumerWidget {
                 'No habits yet',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.text),
               ),
-            ).animate().fadeIn(duration: 500.ms);
+            );
           }
           final bySection = <String, List<Habit>>{};
           for (final habit in habits) {
@@ -68,9 +68,9 @@ class HabitsScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.1),
+                ),
                 for (final habit in entry.value) 
-                  _HabitTile(habit: habit, palette: palette, delay: (index++ * 50).ms),
+                  _HabitTile(habit: habit, palette: palette),
               ],
             ],
           );
@@ -151,11 +151,10 @@ class _DateNavigator extends ConsumerWidget {
 }
 
 class _HabitTile extends ConsumerWidget {
-  const _HabitTile({required this.habit, required this.palette, required this.delay});
+  const _HabitTile({required this.habit, required this.palette});
 
   final Habit habit;
   final AppPalette palette;
-  final Duration delay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -183,7 +182,7 @@ class _HabitTile extends ConsumerWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
+        child: GlassmorphicWrapper(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Material(
             color: Colors.transparent,
@@ -242,7 +241,7 @@ class _HabitTile extends ConsumerWidget {
           ),
         ),
       ),
-    ).animate().fadeIn(duration: 400.ms, delay: delay).slideY(begin: 0.2, curve: Curves.easeOutCubic);
+    );
   }
 
   Widget _buildActionWidget(HabitRepository repo, HabitLog? selectedDateLog, bool isCompleted, BuildContext context, WidgetRef ref, DateTime selectedDate) {
@@ -265,11 +264,7 @@ class _HabitTile extends ConsumerWidget {
           child: isCompleted
               ? Icon(Icons.check, size: 20, color: palette.background)
               : null,
-        ).animate(target: isCompleted ? 1 : 0)
-         .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1), duration: 200.ms, curve: Curves.easeOutBack)
-         .shimmer(duration: 500.ms, delay: 100.ms, color: Colors.white54)
-         .then()
-         .scale(begin: const Offset(1.1, 1.1), end: const Offset(1, 1), duration: 200.ms, curve: Curves.easeIn),
+        ),
       );
     } else {
       return GestureDetector(
@@ -287,11 +282,7 @@ class _HabitTile extends ConsumerWidget {
           child: isCompleted 
               ? Icon(Icons.check, color: palette.background, size: 20)
               : Icon(Icons.add, color: palette.primary, size: 20),
-        ).animate(target: isCompleted ? 1 : 0)
-         .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1), duration: 200.ms, curve: Curves.easeOutBack)
-         .shimmer(duration: 500.ms, delay: 100.ms, color: Colors.white54)
-         .then()
-         .scale(begin: const Offset(1.1, 1.1), end: const Offset(1, 1), duration: 200.ms, curve: Curves.easeIn),
+        ),
       );
     }
   }
@@ -342,7 +333,7 @@ class _HabitTile extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   AnimatedContainer(
-                    duration: 300.ms,
+                    duration: const Duration(milliseconds: 300),
                     width: 12,
                     height: 12,
                     decoration: BoxDecoration(

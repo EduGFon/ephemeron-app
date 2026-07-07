@@ -9,6 +9,7 @@ import '../../tasks/application/task_providers.dart';
 import '../../tasks/presentation/task_form_sheet.dart';
 import '../application/matrix_providers.dart';
 import '../domain/matrix_quadrant.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 class MatrixScreen extends ConsumerWidget {
   const MatrixScreen({super.key});
@@ -131,7 +132,7 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
+        child: GlassmorphicWrapper(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Padding(
             padding: const EdgeInsets.all(16.0),

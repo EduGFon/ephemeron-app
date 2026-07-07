@@ -13,6 +13,7 @@ import '../../features/calendar/presentation/event_form_sheet.dart';
 import '../../../core/settings/session_restore.dart';
 import '../../features/notes/application/notes_providers.dart';
 import '../../features/notes/data/notes_repository.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 class NoteFormSheet extends ConsumerStatefulWidget {
   const NoteFormSheet({this.existingNote, this.unifiedHeader, super.key});
@@ -367,7 +368,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
       ),
       child: ClipRRect(
         borderRadius: _isFullScreen ? BorderRadius.zero : BorderRadius.circular(28),
-        child: BackdropFilter(
+        child: GlassmorphicWrapper(
           filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: Material(
             color: Colors.transparent,

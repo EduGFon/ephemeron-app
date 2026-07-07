@@ -19,6 +19,7 @@ class AppSettings {
     this.alarmShortSoundPath = '/usr/share/sounds/ocean/stereo/alarm-clock-elapsed.oga',
     this.alarmLongSoundPath = '/usr/share/sounds/ocean/stereo/phone-incoming-call.oga',
     this.alarmBackground = '#005F73', // Petrol default hex color
+    this.glassmorphismEnabled = false,
   });
 
   final bool reducedMotion;
@@ -44,6 +45,7 @@ class AppSettings {
   final String alarmShortSoundPath;
   final String alarmLongSoundPath;
   final String alarmBackground;
+  final bool glassmorphismEnabled;
 
   /// Effective "should we skip decorative animation" flag: the user's
   /// explicit toggle, their manual power-saving override, OR the OS
@@ -62,6 +64,7 @@ class AppSettings {
     String? alarmShortSoundPath,
     String? alarmLongSoundPath,
     String? alarmBackground,
+    bool? glassmorphismEnabled,
   }) {
     return AppSettings(
       reducedMotion: reducedMotion ?? this.reducedMotion,
@@ -74,6 +77,7 @@ class AppSettings {
       alarmShortSoundPath: alarmShortSoundPath ?? this.alarmShortSoundPath,
       alarmLongSoundPath: alarmLongSoundPath ?? this.alarmLongSoundPath,
       alarmBackground: alarmBackground ?? this.alarmBackground,
+      glassmorphismEnabled: glassmorphismEnabled ?? this.glassmorphismEnabled,
     );
   }
 }
@@ -88,6 +92,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   static const _alarmShortSoundPathKey = 'settings.alarmShortSoundPath';
   static const _alarmLongSoundPathKey = 'settings.alarmLongSoundPath';
   static const _alarmBackgroundKey = 'settings.alarmBackground';
+  static const _glassmorphismEnabledKey = 'settings.glassmorphismEnabled';
   final _battery = Battery();
 
   @override
@@ -111,6 +116,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       alarmShortSoundPath: prefs.getString(_alarmShortSoundPathKey) ?? '/usr/share/sounds/ocean/stereo/alarm-clock-elapsed.oga',
       alarmLongSoundPath: prefs.getString(_alarmLongSoundPathKey) ?? '/usr/share/sounds/ocean/stereo/phone-incoming-call.oga',
       alarmBackground: prefs.getString(_alarmBackgroundKey) ?? '#005F73',
+      glassmorphismEnabled: prefs.getBool(_glassmorphismEnabledKey) ?? false,
     );
   }
 
@@ -181,6 +187,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(alarmBackground: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_alarmBackgroundKey, value);
+  }
+
+  Future<void> setGlassmorphismEnabled(bool value) async {
+    state = state.copyWith(glassmorphismEnabled: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_glassmorphismEnabledKey, value);
   }
 }
 

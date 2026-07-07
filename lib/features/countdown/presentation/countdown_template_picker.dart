@@ -6,6 +6,7 @@ import 'countdown_form_sheet.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/theme_engine_provider.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 Future<void> showCountdownTemplatePicker(BuildContext context) {
   return showGeneralDialog<void>(
@@ -39,7 +40,7 @@ Future<void> showCountdownTemplatePicker(BuildContext context) {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(28),
-                    child: BackdropFilter(
+                    child: GlassmorphicWrapper(
                       filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
                       child: Padding(
                         padding: const EdgeInsets.all(24),

@@ -22,7 +22,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: Colors.transparent, // Background handled by mesh/solid layers
+      scaffoldBackgroundColor: palette.background,
       textTheme: textTheme,
       pageTransitionsTheme: PageTransitionsTheme(
         builders: {

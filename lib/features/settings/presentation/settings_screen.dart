@@ -79,6 +79,14 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
           const _SectionHeader('Battery & motion'),
           SwitchListTile(
+            title: const Text('Enable Glassmorphism (Blur Effects)'),
+            subtitle: const Text(
+              'Uses blurry backgrounds for some UI elements. WARNING: Severely impacts performance and battery usage.',
+            ),
+            value: settings.glassmorphismEnabled,
+            onChanged: notifier.setGlassmorphismEnabled,
+          ),
+          SwitchListTile(
             title: const Text('Reduce animations'),
             subtitle: const Text('Turns off decorative page transitions'),
             value: settings.reducedMotion,

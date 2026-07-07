@@ -48,7 +48,6 @@ class CalendarMultiDayTimelineView extends ConsumerStatefulWidget {
 
 class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayTimelineView> {
   late final ScrollController _scrollController;
-  Timer? _timer;
   double _baseHourHeight = 80.0;
 
   @override
@@ -58,16 +57,10 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
     _scrollController = ScrollController(
       initialScrollOffset: initialHeight * 7,
     );
-    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }

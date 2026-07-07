@@ -16,6 +16,7 @@ import '../../alarms/application/alarm_permissions_helper.dart';
 import '../../../core/settings/session_restore.dart';
 import '../application/task_providers.dart';
 import '../domain/task_recurrence.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 Future<void> showTaskFormSheet(
   BuildContext context, {
@@ -240,7 +241,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
+        child: GlassmorphicWrapper(
           filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -616,7 +617,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
+              child: GlassmorphicWrapper(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: StatefulBuilder(
                   builder: (ctx, setDlgState) {
@@ -917,7 +918,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
+              child: GlassmorphicWrapper(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: StatefulBuilder(
                   builder: (ctx, setDlgState) {
@@ -1036,7 +1037,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
+              child: GlassmorphicWrapper(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: StatefulBuilder(
                   builder: (ctx, setDlgState) {

@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
@@ -11,6 +10,7 @@ import '../domain/countdown_status.dart';
 import '../domain/countdown_type.dart';
 import 'countdown_form_sheet.dart';
 import 'countdown_template_picker.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 class CountdownScreen extends ConsumerWidget {
   const CountdownScreen({super.key});
@@ -35,7 +35,7 @@ class CountdownScreen extends ConsumerWidget {
                 'No countdowns yet',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.text),
               ),
-            ).animate().fadeIn(duration: 500.ms);
+            );
           }
           final withStatus = [
             for (final countdown in countdowns)
@@ -58,7 +58,6 @@ class CountdownScreen extends ConsumerWidget {
                 countdown: entry.countdown,
                 status: entry.status,
                 palette: palette,
-                delay: (index * 50).ms,
               );
             },
           );
@@ -76,13 +75,11 @@ class _CountdownTile extends ConsumerWidget {
     required this.countdown, 
     required this.status, 
     required this.palette,
-    required this.delay,
   });
 
   final Countdown countdown;
   final CountdownStatus status;
   final AppPalette palette;
-  final Duration delay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -118,7 +115,7 @@ class _CountdownTile extends ConsumerWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
+            child: GlassmorphicWrapper(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Material(
                 color: Colors.transparent,
@@ -197,6 +194,6 @@ class _CountdownTile extends ConsumerWidget {
           ),
         ),
       ),
-    ).animate().fadeIn(duration: 400.ms, delay: delay).slideX(begin: 0.1, curve: Curves.easeOutCubic);
+    );
   }
 }

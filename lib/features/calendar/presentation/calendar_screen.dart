@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -21,6 +20,7 @@ import '../../tasks/presentation/task_form_sheet.dart';
 import '../../tasks/application/task_providers.dart';
 import '../../habits/presentation/habit_form_sheet.dart';
 import '../../habits/application/habit_providers.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 class CalendarFormatNotifier extends Notifier<CalendarFormat> {
   @override
@@ -192,7 +192,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
-                      child: BackdropFilter(
+                      child: GlassmorphicWrapper(
                         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                         child: monthEventsAsync.when(
                           data: (events) => CalendarMonthGridView(
@@ -209,7 +209,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   ),
                 ),
               ],
-            ).animate().fadeIn(duration: 400.ms)
+            )
           : calendarView == CalendarView.weekTimeline ||
                   calendarView == CalendarView.fourDaysTimeline ||
                   calendarView == CalendarView.threeDaysTimeline
@@ -222,7 +222,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
+                    child: GlassmorphicWrapper(
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: monthEventsAsync.hasValue
                           ? CalendarMultiDayTimelineView(
@@ -251,7 +251,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                             ),
                     ),
                   ),
-                ).animate().fadeIn(duration: 400.ms)
+                )
               : calendarView == CalendarView.dailyTimeline
                   ? Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -262,7 +262,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        child: BackdropFilter(
+                        child: GlassmorphicWrapper(
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: monthEventsAsync.hasValue
                               ? CalendarDailyTimelineView(
@@ -279,7 +279,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                 ),
                         ),
                       ),
-                    ).animate().fadeIn(duration: 400.ms)
+                    )
                   : Column(
               children: [
                 Container(
@@ -291,7 +291,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
+                    child: GlassmorphicWrapper(
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
@@ -361,7 +361,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       ),
                     ),
                   ),
-                ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
+                ),
                 Expanded(
                   child: _DayAgenda(
                     day: selectedDay,
@@ -421,7 +421,7 @@ class _DayAgenda extends ConsumerWidget {
                   style: TextStyle(color: palette.text.withValues(alpha: 0.5), fontSize: 16),
                 ),
               ],
-            ).animate().fadeIn(),
+            ),
           );
         }
         final sorted = [...events]..sort((a, b) => a.start.compareTo(b.start));
@@ -430,7 +430,7 @@ class _DayAgenda extends ConsumerWidget {
           itemCount: sorted.length,
           itemBuilder: (context, index) => Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
-            child: _EventTile(event: sorted[index], palette: palette).animate().fadeIn(delay: (index * 50).ms).slideX(begin: 0.1),
+            child: _EventTile(event: sorted[index], palette: palette),
           ),
         );
       },
@@ -493,7 +493,7 @@ class _EventTile extends ConsumerWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
+        child: GlassmorphicWrapper(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

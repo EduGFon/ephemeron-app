@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,6 +21,7 @@ import '../../features/countdown/domain/countdown_type.dart';
 import '../notes/note_form_sheet.dart';
 import 'nav_section.dart';
 import 'pinned_sections_provider.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({required this.navigationShell, super.key});
@@ -213,7 +213,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 },
                 child: const Icon(Icons.add, size: 28),
               ),
-            ).animate().scale(curve: Curves.easeOutBack, duration: 400.ms)
+            )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: _PremiumNavigationBar(
@@ -251,7 +251,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       builder: (sheetContext) {
         return ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          child: BackdropFilter(
+          child: GlassmorphicWrapper(
             filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
             child: SafeArea(
               child: Column(
@@ -285,7 +285,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                         Navigator.of(sheetContext).pop();
                         navigationShell.goBranch(overflow[i].branchIndex);
                       },
-                    ).animate().fadeIn(delay: (i * 50).ms).slideX(begin: -0.1),
+                    ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                     child: Divider(height: 1, color: palette.text.withValues(alpha: 0.1)),
@@ -307,7 +307,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                         MaterialPageRoute(builder: (_) => const SettingsScreen()),
                       );
                     },
-                  ).animate().fadeIn(delay: (overflow.length * 50).ms).slideX(begin: -0.1),
+                  ),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -359,7 +359,7 @@ class _PremiumNavigationBar extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: isPill ? BorderRadius.circular(36) : BorderRadius.zero,
-        child: BackdropFilter(
+        child: GlassmorphicWrapper(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -395,12 +395,12 @@ class _PremiumNavigationBar extends StatelessWidget {
           bottom: bottomPadding > 0 ? bottomPadding : 16,
         ),
         child: navBar,
-      ).animate().slideY(begin: 1, curve: Curves.easeOutCubic, duration: 600.ms);
+      );
     } else {
       return Padding(
         padding: EdgeInsets.only(bottom: bottomPadding),
         child: navBar,
-      ).animate().fadeIn(duration: 400.ms);
+      );
     }
   }
 }
@@ -435,12 +435,7 @@ class _NavItem extends StatelessWidget {
             Icon(
               isSelected ? selectedIcon : icon,
               color: isSelected ? palette.primary : palette.text.withValues(alpha: 0.6),
-            ).animate(target: isSelected ? 1 : 0).scale(
-                  begin: const Offset(1, 1),
-                  end: const Offset(1.2, 1.2),
-                  curve: Curves.elasticOut,
-                  duration: 500.ms,
-                ),
+            ),
             const SizedBox(height: 4),
             Text(
               label,

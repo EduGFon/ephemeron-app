@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
@@ -13,6 +12,7 @@ import '../application/focus_timer_controller.dart';
 import '../application/focus_timer_state.dart';
 import '../domain/focus_mode.dart';
 import 'focus_month_screen.dart';
+import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 
 class FocusScreen extends ConsumerWidget {
   const FocusScreen({super.key});
@@ -60,7 +60,7 @@ class FocusScreen extends ConsumerWidget {
                           onSelectionChanged: timerState.isRunning
                               ? null
                               : (selection) => controller.setMode(selection.first),
-                        ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
+                        ),
                         
                         const Spacer(),
                         
@@ -83,7 +83,7 @@ class FocusScreen extends ConsumerWidget {
                             ),
                           ),
                           child: ClipOval(
-                            child: BackdropFilter(
+                            child: GlassmorphicWrapper(
                               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                               child: Center(
                                 child: Column(
@@ -118,17 +118,11 @@ class FocusScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
-                        ).animate(target: timerState.isRunning ? 1 : 0).scale(
-                          begin: const Offset(1, 1), 
-                          end: const Offset(1.05, 1.05), 
-                          duration: 1.seconds, 
-                          curve: Curves.easeInOutSine,
                         ),
 
                         const SizedBox(height: 48),
                         
-                        _LinkPicker(state: timerState, controller: controller, palette: palette)
-                            .animate().fadeIn(duration: 500.ms, delay: 200.ms).slideY(begin: 0.1),
+                        _LinkPicker(state: timerState, controller: controller, palette: palette),
                         
                         const SizedBox(height: 16),
                         
@@ -137,7 +131,7 @@ class FocusScreen extends ConsumerWidget {
                           onTap: () => controller.setKeepScreenOn(!timerState.keepScreenOn),
                           borderRadius: BorderRadius.circular(20),
                           child: AnimatedContainer(
-                            duration: 200.ms,
+                            duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
                               color: timerState.keepScreenOn
@@ -172,16 +166,15 @@ class FocusScreen extends ConsumerWidget {
                               ],
                             ),
                           ),
-                        ).animate().fadeIn(duration: 500.ms, delay: 300.ms).slideY(begin: 0.1),
+                        ),
                         
                         const Spacer(),
                         
-                        _Controls(state: timerState, controller: controller, palette: palette)
-                            .animate().fadeIn(duration: 500.ms, delay: 400.ms).slideY(begin: 0.2),
+                        _Controls(state: timerState, controller: controller, palette: palette),
                         
                         const SizedBox(height: 24),
                         
-                        _TotalsRow(palette: palette).animate().fadeIn(duration: 500.ms, delay: 500.ms),
+                        _TotalsRow(palette: palette),
                         const SizedBox(height: 90), // Bottom padding for floating pill
                       ],
                     ),
@@ -259,7 +252,7 @@ class _LinkPicker extends ConsumerWidget {
         ),
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          child: BackdropFilter(
+          child: GlassmorphicWrapper(
             filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
             child: SafeArea(
               child: ListView(
