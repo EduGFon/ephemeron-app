@@ -48,7 +48,7 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
       // OAuth client via the package name + SHA-1 fingerprint registered
       // in Cloud Console instead.
       clientId: kIsWeb ? AppConfig.googleWebClientId : null,
-      serverClientId: AppConfig.googleWebClientId,
+      serverClientId: kIsWeb ? null : AppConfig.googleWebClientId,
     );
 
     _eventSubscription = _instance.authenticationEvents.listen(
