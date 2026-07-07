@@ -113,6 +113,12 @@ class AppDatabase extends _$AppDatabase {
   // Web) — this is the piece that makes the same schema work across every
   // target without per-platform branching in app code.
   static QueryExecutor _openConnection() {
-    return driftDatabase(name: 'ephemeron_db');
+    return driftDatabase(
+      name: 'ephemeron_db',
+      web: DriftWebOptions(
+        sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+        driftWorker: Uri.parse('drift_worker.js'),
+      ),
+    );
   }
 }
