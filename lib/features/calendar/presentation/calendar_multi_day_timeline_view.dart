@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/theme_engine_provider.dart';
@@ -47,12 +49,14 @@ class CalendarMultiDayTimelineView extends ConsumerStatefulWidget {
 class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayTimelineView> {
   late final ScrollController _scrollController;
   Timer? _timer;
+  double _baseHourHeight = 80.0;
 
   @override
   void initState() {
     super.initState();
+    final initialHeight = ref.read(calendarHourHeightProvider);
     _scrollController = ScrollController(
-      initialScrollOffset: CalendarMultiDayTimelineView.hourHeight * 7,
+      initialScrollOffset: initialHeight * 7,
     );
     _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
@@ -71,6 +75,7 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
   @override
   Widget build(BuildContext context) {
     final palette = ref.watch(themeEngineProvider);
+    final hourHeight = ref.watch(calendarHourHeightProvider);
     final visibleDays = _calculateVisibleDays(widget.selectedDay, widget.daysCount, widget.startDayOfWeek);
     final gmtOffset = _getGmtOffsetString(widget.selectedDay);
 
@@ -200,18 +205,63 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
         ),
         // Scrollable timeline columns grid
         Expanded(
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            child: Stack(
-              children: [
-                // Horizontal grid lines and hour labels
-                Column(
-                  children: [
-                    for (int hour = 0; hour <= 24; hour++)
-                      SizedBox(
-                        height: CalendarMultiDayTimelineView.hourHeight,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          child: CallbackShortcuts(
+            bindings: {
+              SingleActivator(LogicalKeyboardKey.equal, control: true): () {
+                final current = ref.read(calendarHourHeightProvider);
+                ref.read(calendarHourHeightProvider.notifier).state =
+                    (current + 10.0).clamp(40.0, 240.0);
+              },
+              SingleActivator(LogicalKeyboardKey.numpadAdd, control: true): () {
+                final current = ref.read(calendarHourHeightProvider);
+                ref.read(calendarHourHeightProvider.notifier).state =
+                    (current + 10.0).clamp(40.0, 240.0);
+              },
+              SingleActivator(LogicalKeyboardKey.minus, control: true): () {
+                final current = ref.read(calendarHourHeightProvider);
+                ref.read(calendarHourHeightProvider.notifier).state =
+                    (current - 10.0).clamp(40.0, 240.0);
+              },
+              SingleActivator(LogicalKeyboardKey.numpadSubtract, control: true): () {
+                final current = ref.read(calendarHourHeightProvider);
+                ref.read(calendarHourHeightProvider.notifier).state =
+                    (current - 10.0).clamp(40.0, 240.0);
+              },
+            },
+            child: Focus(
+              autofocus: true,
+              child: Listener(
+                onPointerSignal: (pointerSignal) {
+                  if (pointerSignal is PointerScrollEvent) {
+                    final isControlPressed = HardwareKeyboard.instance.isControlPressed;
+                    if (isControlPressed) {
+                      final zoomDelta = -pointerSignal.scrollDelta.dy * 0.1;
+                      final current = ref.read(calendarHourHeightProvider);
+                      ref.read(calendarHourHeightProvider.notifier).state =
+                          (current + zoomDelta).clamp(40.0, 240.0);
+                    }
+                  }
+                },
+                child: GestureDetector(
+                  onScaleStart: (details) {
+                    _baseHourHeight = ref.read(calendarHourHeightProvider);
+                  },
+                  onScaleUpdate: (details) {
+                    ref.read(calendarHourHeightProvider.notifier).state =
+                        (_baseHourHeight * details.scale).clamp(40.0, 240.0);
+                  },
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    child: Stack(
+                      children: [
+                        // Horizontal grid lines and hour labels
+                        Column(
+                          children: [
+                            for (int hour = 0; hour <= 24; hour++)
+                              SizedBox(
+                                height: hourHeight,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Hour label
                             Container(
@@ -314,6 +364,10 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
             ),
           ),
         ),
+      ),
+    ),
+  ),
+),
       ],
     );
   }
@@ -436,13 +490,15 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
   }
 
   double _getTopOffset(DateTime time) {
-    return (time.hour + time.minute / 60.0) * CalendarMultiDayTimelineView.hourHeight;
+    final hourHeight = ref.read(calendarHourHeightProvider);
+    return (time.hour + time.minute / 60.0) * hourHeight;
   }
 
   double _getHeight(DateTime start, DateTime end) {
+    final hourHeight = ref.read(calendarHourHeightProvider);
     final duration = end.difference(start).inMinutes;
     final actualDuration = duration <= 0 ? 30 : duration;
-    return (actualDuration / 60.0) * CalendarMultiDayTimelineView.hourHeight;
+    return (actualDuration / 60.0) * hourHeight;
   }
 
   Color _getEventColor(String? colorId, AppPalette palette) {

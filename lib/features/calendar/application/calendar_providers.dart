@@ -11,6 +11,16 @@ import '../../tasks/data/task_repository.dart';
 import '../../habits/application/habit_providers.dart';
 import '../../habits/domain/habit_frequency.dart';
 
+class CalendarHourHeightNotifier extends Notifier<double> {
+  @override
+  double build() => 80.0;
+
+  set state(double value) => super.state = value;
+}
+
+final calendarHourHeightProvider =
+    NotifierProvider<CalendarHourHeightNotifier, double>(CalendarHourHeightNotifier.new);
+
 final calendarRepositoryProvider = Provider<CalendarRepository>((ref) {
   return CalendarRepository(
     ref.watch(googleAuthRepositoryProvider),

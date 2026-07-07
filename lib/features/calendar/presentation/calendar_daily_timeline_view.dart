@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
 
@@ -37,12 +39,14 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   DateTime? _dragCurrentEnd;
   late final ScrollController _scrollController;
   Timer? _timer;
+  double _baseHourHeight = 80.0;
 
   @override
   void initState() {
     super.initState();
+    final initialHeight = ref.read(calendarHourHeightProvider);
     _scrollController = ScrollController(
-      initialScrollOffset: CalendarDailyTimelineView.hourHeight * 7,
+      initialScrollOffset: initialHeight * 7,
     );
     _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
@@ -59,7 +63,8 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   }
 
   DateTime _getDateTimeFromTop(double top, DateTime originalStart) {
-    final totalMinutes = (top / CalendarDailyTimelineView.hourHeight * 60.0).round();
+    final hourHeight = ref.read(calendarHourHeightProvider);
+    final totalMinutes = (top / hourHeight * 60.0).round();
     final snappedMinutes = (totalMinutes / 15.0).round() * 15;
     final clampedMinutes = snappedMinutes.clamp(0, 24 * 60 - 15);
     final hour = clampedMinutes ~/ 60;
@@ -70,6 +75,7 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   @override
   Widget build(BuildContext context) {
     final palette = ref.watch(themeEngineProvider);
+    final hourHeight = ref.watch(calendarHourHeightProvider);
 
     // Filter events for the selected day
     final dayEvents = widget.events.where((e) {
@@ -219,18 +225,63 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
         ],
         // Scrollable Timeline grid
         Expanded(
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            child: Stack(
-              children: [
-                // Horizontal grid lines and hour labels
-                Column(
-                  children: [
-                    for (int hour = 0; hour <= 24; hour++)
-                      SizedBox(
-                        height: CalendarDailyTimelineView.hourHeight,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          child: CallbackShortcuts(
+            bindings: {
+              SingleActivator(LogicalKeyboardKey.equal, control: true): () {
+                final current = ref.read(calendarHourHeightProvider);
+                ref.read(calendarHourHeightProvider.notifier).state =
+                    (current + 10.0).clamp(40.0, 240.0);
+              },
+              SingleActivator(LogicalKeyboardKey.numpadAdd, control: true): () {
+                final current = ref.read(calendarHourHeightProvider);
+                ref.read(calendarHourHeightProvider.notifier).state =
+                    (current + 10.0).clamp(40.0, 240.0);
+              },
+              SingleActivator(LogicalKeyboardKey.minus, control: true): () {
+                final current = ref.read(calendarHourHeightProvider);
+                ref.read(calendarHourHeightProvider.notifier).state =
+                    (current - 10.0).clamp(40.0, 240.0);
+              },
+              SingleActivator(LogicalKeyboardKey.numpadSubtract, control: true): () {
+                final current = ref.read(calendarHourHeightProvider);
+                ref.read(calendarHourHeightProvider.notifier).state =
+                    (current - 10.0).clamp(40.0, 240.0);
+              },
+            },
+            child: Focus(
+              autofocus: true,
+              child: Listener(
+                onPointerSignal: (pointerSignal) {
+                  if (pointerSignal is PointerScrollEvent) {
+                    final isControlPressed = HardwareKeyboard.instance.isControlPressed;
+                    if (isControlPressed) {
+                      final zoomDelta = -pointerSignal.scrollDelta.dy * 0.1;
+                      final current = ref.read(calendarHourHeightProvider);
+                      ref.read(calendarHourHeightProvider.notifier).state =
+                          (current + zoomDelta).clamp(40.0, 240.0);
+                    }
+                  }
+                },
+                child: GestureDetector(
+                  onScaleStart: (details) {
+                    _baseHourHeight = ref.read(calendarHourHeightProvider);
+                  },
+                  onScaleUpdate: (details) {
+                    ref.read(calendarHourHeightProvider.notifier).state =
+                        (_baseHourHeight * details.scale).clamp(40.0, 240.0);
+                  },
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    child: Stack(
+                      children: [
+                        // Horizontal grid lines and hour labels
+                        Column(
+                          children: [
+                            for (int hour = 0; hour <= 24; hour++)
+                              SizedBox(
+                                height: hourHeight,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Hour label
                             Container(
@@ -309,6 +360,10 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
             ),
           ),
         ),
+      ),
+    ),
+  ),
+),
       ],
     );
   }
@@ -355,7 +410,8 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
             final duration = event.end.difference(event.start);
             setState(() {
               _dragCurrentTop += details.primaryDelta ?? 0.0;
-              _dragCurrentTop = _dragCurrentTop.clamp(0.0, 24.0 * CalendarDailyTimelineView.hourHeight);
+              final hourHeight = ref.read(calendarHourHeightProvider);
+              _dragCurrentTop = _dragCurrentTop.clamp(0.0, 24.0 * hourHeight);
               _dragCurrentStart = _getDateTimeFromTop(_dragCurrentTop, event.start.toLocal());
               _dragCurrentEnd = _dragCurrentStart!.add(duration);
             });
@@ -512,14 +568,16 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   }
 
   double _getTopOffset(DateTime time) {
-    return (time.hour + time.minute / 60.0) * CalendarDailyTimelineView.hourHeight;
+    final hourHeight = ref.read(calendarHourHeightProvider);
+    return (time.hour + time.minute / 60.0) * hourHeight;
   }
 
   double _getHeight(DateTime start, DateTime end) {
+    final hourHeight = ref.read(calendarHourHeightProvider);
     final duration = end.difference(start).inMinutes;
     // Minimum 30 minutes height representation
     final actualDuration = duration <= 0 ? 30 : duration;
-    return (actualDuration / 60.0) * CalendarDailyTimelineView.hourHeight;
+    return (actualDuration / 60.0) * hourHeight;
   }
 
   Color _getEventColor(String? colorId, AppPalette palette) {
