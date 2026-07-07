@@ -5,7 +5,7 @@ import '../../../core/theme/theme_palettes.dart';
 
 Widget buildGoogleSignInButton({required VoidCallback onPressed, required AppPalette palette}) {
   return (GoogleSignInPlatform.instance as web.GoogleSignInPlugin).renderButton(
-    configuration: const web.GSIButtonConfiguration(
+    configuration: web.GSIButtonConfiguration(
       type: web.GSIButtonType.standard,
       shape: web.GSIButtonShape.rectangular,
       size: web.GSIButtonSize.large,
