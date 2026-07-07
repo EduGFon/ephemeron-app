@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/config/app_config.dart';
 import '../backend/backend_auth_provider.dart';
 import '../backend/backend_auth_repository.dart';
 import '../google/google_auth_provider.dart';
 import '../google/google_auth_repository.dart';
+import 'google_sign_in_button.dart';
 
 class AuthScreen extends ConsumerWidget {
   const AuthScreen({super.key});
@@ -61,6 +63,7 @@ class _GoogleCalendarCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accountAsync = ref.watch(googleAccountProvider);
+    final palette = ref.watch(themeEngineProvider);
 
     return Card(
       child: Padding(
@@ -84,10 +87,9 @@ class _GoogleCalendarCard extends ConsumerWidget {
             const SizedBox(height: 12),
             accountAsync.when(
               data: (account) => account == null
-                  ? FilledButton.icon(
+                  ? buildGoogleSignInButton(
                       onPressed: () => _signIn(context, ref),
-                      icon: const Icon(Icons.login),
-                      label: const Text('Connect Google Calendar'),
+                      palette: palette,
                     )
                   : Row(
                       children: [
