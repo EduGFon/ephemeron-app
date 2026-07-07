@@ -110,6 +110,46 @@ class CalendarEvent {
   final RsvpStatus selfResponseStatus;
   final bool isSelfVirtual;
 
+  CalendarEvent copyWith({
+    String? id,
+    String? calendarId,
+    String? title,
+    String? description,
+    String? location,
+    DateTime? start,
+    DateTime? end,
+    bool? isAllDay,
+    String? colorId,
+    List<int>? reminderMinutes,
+    List<String>? tags,
+    bool? isDeleted,
+    List<String>? attendees,
+    bool? hasVideoConference,
+    String? videoConferenceLink,
+    RsvpStatus? selfResponseStatus,
+    bool? isSelfVirtual,
+  }) {
+    return CalendarEvent(
+      id: id ?? this.id,
+      calendarId: calendarId ?? this.calendarId,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      location: location ?? this.location,
+      start: start ?? this.start,
+      end: end ?? this.end,
+      isAllDay: isAllDay ?? this.isAllDay,
+      colorId: colorId ?? this.colorId,
+      reminderMinutes: reminderMinutes ?? this.reminderMinutes,
+      tags: tags ?? this.tags,
+      isDeleted: isDeleted ?? this.isDeleted,
+      attendees: attendees ?? this.attendees,
+      hasVideoConference: hasVideoConference ?? this.hasVideoConference,
+      videoConferenceLink: videoConferenceLink ?? this.videoConferenceLink,
+      selfResponseStatus: selfResponseStatus ?? this.selfResponseStatus,
+      isSelfVirtual: isSelfVirtual ?? this.isSelfVirtual,
+    );
+  }
+
   static CalendarEvent fromGoogle(gcal.Event event, {String calendarId = 'primary'}) {
     final startDateTime = event.start?.dateTime;
     final startDate = event.start?.date;

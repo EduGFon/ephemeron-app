@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart' show Value;
 
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
@@ -9,7 +10,7 @@ import 'event_form_sheet.dart';
 import '../../tasks/presentation/task_form_sheet.dart';
 import '../../tasks/application/task_providers.dart';
 
-class CalendarDailyTimelineView extends ConsumerWidget {
+class CalendarDailyTimelineView extends ConsumerStatefulWidget {
   const CalendarDailyTimelineView({
     required this.selectedDay,
     required this.events,
@@ -23,12 +24,31 @@ class CalendarDailyTimelineView extends ConsumerWidget {
   static const double timeColumnWidth = 60.0;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CalendarDailyTimelineView> createState() => _CalendarDailyTimelineViewState();
+}
+
+class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelineView> {
+  String? _draggingEventId;
+  double _dragCurrentTop = 0.0;
+  DateTime? _dragCurrentStart;
+  DateTime? _dragCurrentEnd;
+
+  DateTime _getDateTimeFromTop(double top, DateTime originalStart) {
+    final totalMinutes = (top / CalendarDailyTimelineView.hourHeight * 60.0).round();
+    final snappedMinutes = (totalMinutes / 15.0).round() * 15;
+    final clampedMinutes = snappedMinutes.clamp(0, 24 * 60 - 15);
+    final hour = clampedMinutes ~/ 60;
+    final minute = clampedMinutes % 60;
+    return DateTime(originalStart.year, originalStart.month, originalStart.day, hour, minute);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final palette = ref.watch(themeEngineProvider);
 
     // Filter events for the selected day
-    final dayEvents = events.where((e) {
-      final targetDay = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+    final dayEvents = widget.events.where((e) {
+      final targetDay = DateTime(widget.selectedDay.year, widget.selectedDay.month, widget.selectedDay.day);
       if (e.isAllDay) {
         final startZero = DateTime(e.start.year, e.start.month, e.start.day);
         final endZero = DateTime(e.end.year, e.end.month, e.end.day);
@@ -41,12 +61,12 @@ class CalendarDailyTimelineView extends ConsumerWidget {
     final allDayEvents = dayEvents.where((e) => e.isAllDay).toList();
     final timedEvents = dayEvents.where((e) => !e.isAllDay).toList();
 
-    final gmtOffset = _getGmtOffsetString(selectedDay);
-    final weekdayName = _getWeekdayName(selectedDay.weekday);
+    final gmtOffset = _getGmtOffsetString(widget.selectedDay);
+    final weekdayName = _getWeekdayName(widget.selectedDay.weekday);
 
     // Timeline hours range from 00:00 to 24:00.
     // We scroll automatically to show morning hours (e.g. 07:00) by default.
-    final scrollController = ScrollController(initialScrollOffset: hourHeight * 7);
+    final scrollController = ScrollController(initialScrollOffset: CalendarDailyTimelineView.hourHeight * 7);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -70,7 +90,7 @@ class CalendarDailyTimelineView extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    '${selectedDay.day}',
+                    '${widget.selectedDay.day}',
                     style: TextStyle(
                       color: palette.text,
                       fontSize: 32,
@@ -95,11 +115,11 @@ class CalendarDailyTimelineView extends ConsumerWidget {
                     icon: Icon(Icons.chevron_left, color: palette.text),
                     onPressed: () {
                       ref.read(selectedDayProvider.notifier).setDay(
-                        selectedDay.subtract(const Duration(days: 1)),
+                        widget.selectedDay.subtract(const Duration(days: 1)),
                       );
                       ref.read(focusedMonthProvider.notifier).setMonth(DateTime(
-                        selectedDay.year,
-                        selectedDay.month,
+                        widget.selectedDay.year,
+                        widget.selectedDay.month,
                         1,
                       ));
                     },
@@ -108,11 +128,11 @@ class CalendarDailyTimelineView extends ConsumerWidget {
                     icon: Icon(Icons.chevron_right, color: palette.text),
                     onPressed: () {
                       ref.read(selectedDayProvider.notifier).setDay(
-                        selectedDay.add(const Duration(days: 1)),
+                        widget.selectedDay.add(const Duration(days: 1)),
                       );
                       ref.read(focusedMonthProvider.notifier).setMonth(DateTime(
-                        selectedDay.year,
-                        selectedDay.month,
+                        widget.selectedDay.year,
+                        widget.selectedDay.month,
                         1,
                       ));
                     },
@@ -182,13 +202,13 @@ class CalendarDailyTimelineView extends ConsumerWidget {
                   children: [
                     for (int hour = 0; hour <= 24; hour++)
                       SizedBox(
-                        height: hourHeight,
+                        height: CalendarDailyTimelineView.hourHeight,
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Hour label
                             Container(
-                              width: timeColumnWidth,
+                              width: CalendarDailyTimelineView.timeColumnWidth,
                               padding: const EdgeInsets.only(right: 8, top: 4),
                               alignment: Alignment.topRight,
                               child: Text(
@@ -214,7 +234,7 @@ class CalendarDailyTimelineView extends ConsumerWidget {
                 ),
                 // Stacked events layered over the timeline
                 Positioned.fill(
-                  left: timeColumnWidth,
+                  left: CalendarDailyTimelineView.timeColumnWidth,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
@@ -251,11 +271,11 @@ class CalendarDailyTimelineView extends ConsumerWidget {
     double width,
     AppPalette palette,
   ) {
-    final startLocal = event.start.toLocal();
-    final endLocal = event.end.toLocal();
+    final startLocal = _draggingEventId == event.id ? _dragCurrentStart! : event.start.toLocal();
+    final endLocal = _draggingEventId == event.id ? _dragCurrentEnd! : event.end.toLocal();
 
     // Calculate vertical offset and height
-    final double top = _getTopOffset(startLocal);
+    final double top = _draggingEventId == event.id ? _dragCurrentTop : _getTopOffset(startLocal);
     final double height = _getHeight(startLocal, endLocal);
     final Color eventColor = _getEventColor(event.colorId, palette);
 
@@ -270,17 +290,67 @@ class CalendarDailyTimelineView extends ConsumerWidget {
       height: height - 2,
       child: GestureDetector(
         onTap: () => _onEventTapped(context, ref, event),
+        onVerticalDragStart: (details) {
+          final sLocal = event.start.toLocal();
+          final duration = event.end.difference(event.start);
+          setState(() {
+            _draggingEventId = event.id;
+            _dragCurrentTop = _getTopOffset(sLocal);
+            _dragCurrentStart = sLocal;
+            _dragCurrentEnd = sLocal.add(duration);
+          });
+        },
+        onVerticalDragUpdate: (details) {
+          if (_draggingEventId == event.id) {
+            final duration = event.end.difference(event.start);
+            setState(() {
+              _dragCurrentTop += details.primaryDelta ?? 0.0;
+              _dragCurrentTop = _dragCurrentTop.clamp(0.0, 24.0 * CalendarDailyTimelineView.hourHeight);
+              _dragCurrentStart = _getDateTimeFromTop(_dragCurrentTop, event.start.toLocal());
+              _dragCurrentEnd = _dragCurrentStart!.add(duration);
+            });
+          }
+        },
+        onVerticalDragEnd: (details) async {
+          if (_draggingEventId == event.id) {
+            final newStart = _dragCurrentStart!;
+            final newEnd = _dragCurrentEnd!;
+            final oldDraggingId = _draggingEventId!;
+
+            setState(() {
+              _draggingEventId = null;
+              _dragCurrentStart = null;
+              _dragCurrentEnd = null;
+            });
+
+            if (oldDraggingId.startsWith('task:')) {
+              final taskId = oldDraggingId.substring(5);
+              await ref.read(taskRepositoryProvider).updateTask(
+                taskId,
+                dueDate: Value(newStart),
+                dueHasTime: true,
+              );
+            } else {
+              final originalEvent = widget.events.firstWhere((e) => e.id == oldDraggingId);
+              final updated = originalEvent.copyWith(
+                start: newStart,
+                end: newEnd,
+              );
+              await ref.read(calendarRepositoryProvider).updateEvent(updated);
+            }
+          }
+        },
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: paddingHorizontal, vertical: paddingVertical),
           decoration: BoxDecoration(
-            color: eventColor.withValues(alpha: 0.85),
+            color: eventColor.withValues(alpha: _draggingEventId == event.id ? 0.7 : 0.85),
             borderRadius: BorderRadius.circular(height < 50 ? 8 : 12),
             boxShadow: [
               if (height >= 30)
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withValues(alpha: _draggingEventId == event.id ? 0.2 : 0.1),
+                  blurRadius: _draggingEventId == event.id ? 8 : 4,
+                  offset: Offset(0, _draggingEventId == event.id ? 4 : 2),
                 ),
             ],
           ),
@@ -290,15 +360,51 @@ class CalendarDailyTimelineView extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Expanded(
-                  child: Text(
-                    event.title,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: height < 50 ? 11 : 13,
-                    ),
-                    maxLines: height < 50 ? 1 : 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      if (event.id.startsWith('task:')) ...[
+                        GestureDetector(
+                          onTap: () {
+                            final taskId = event.id.substring(5);
+                            final isCompleted = event.title.startsWith('✓ ');
+                            final repo = ref.read(taskRepositoryProvider);
+                            if (isCompleted) {
+                              repo.uncompleteTask(taskId);
+                            } else {
+                              repo.completeTask(taskId);
+                            }
+                          },
+                          child: Container(
+                            width: height < 50 ? 14 : 18,
+                            height: height < 50 ? 14 : 18,
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.5),
+                              color: event.title.startsWith('✓ ')
+                                  ? Colors.white.withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                            ),
+                            child: event.title.startsWith('✓ ')
+                                ? Icon(Icons.check, size: height < 50 ? 10 : 12, color: Colors.white)
+                                : null,
+                          ),
+                        ),
+                      ],
+                      Expanded(
+                        child: Text(
+                          event.id.startsWith('task:') ? event.title.substring(2) : event.title,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: height < 50 ? 11 : 13,
+                            decoration: event.title.startsWith('✓ ') ? TextDecoration.lineThrough : null,
+                          ),
+                          maxLines: height < 50 ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (showTime) ...[
@@ -325,14 +431,14 @@ class CalendarDailyTimelineView extends ConsumerWidget {
   }
 
   double _getTopOffset(DateTime time) {
-    return (time.hour + time.minute / 60.0) * hourHeight;
+    return (time.hour + time.minute / 60.0) * CalendarDailyTimelineView.hourHeight;
   }
 
   double _getHeight(DateTime start, DateTime end) {
     final duration = end.difference(start).inMinutes;
     // Minimum 30 minutes height representation
     final actualDuration = duration <= 0 ? 30 : duration;
-    return (actualDuration / 60.0) * hourHeight;
+    return (actualDuration / 60.0) * CalendarDailyTimelineView.hourHeight;
   }
 
   Color _getEventColor(String? colorId, AppPalette palette) {
