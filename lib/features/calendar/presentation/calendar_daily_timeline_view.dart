@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
@@ -35,6 +36,7 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   DateTime? _dragCurrentStart;
   DateTime? _dragCurrentEnd;
   late final ScrollController _scrollController;
+  Timer? _timer;
 
   @override
   void initState() {
@@ -42,10 +44,16 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
     _scrollController = ScrollController(
       initialScrollOffset: CalendarDailyTimelineView.hourHeight * 7,
     );
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -80,6 +88,11 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
 
     final gmtOffset = _getGmtOffsetString(widget.selectedDay);
     final weekdayName = _getWeekdayName(widget.selectedDay.weekday);
+
+    final now = DateTime.now();
+    final isToday = widget.selectedDay.year == now.year &&
+        widget.selectedDay.month == now.month &&
+        widget.selectedDay.day == now.day;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -268,6 +281,30 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
                     },
                   ),
                 ),
+                if (isToday)
+                  Positioned(
+                    top: _getTopOffset(now) - 4, // Center the 8px dot/line vertically
+                    left: CalendarDailyTimelineView.timeColumnWidth - 4,
+                    right: 0,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.redAccent,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 2,
+                            color: Colors.redAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,6 +46,7 @@ class CalendarMultiDayTimelineView extends ConsumerStatefulWidget {
 
 class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayTimelineView> {
   late final ScrollController _scrollController;
+  Timer? _timer;
 
   @override
   void initState() {
@@ -52,10 +54,16 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
     _scrollController = ScrollController(
       initialScrollOffset: CalendarMultiDayTimelineView.hourHeight * 7,
     );
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -253,6 +261,11 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
                                 final timedEvents = _getTimedEventsForDay(day);
                                 final positionedEvents = _layoutEvents(timedEvents);
 
+                                final now = DateTime.now();
+                                final isToday = day.year == now.year &&
+                                    day.month == now.month &&
+                                    day.day == now.day;
+
                                 return Stack(
                                   children: [
                                     for (final pe in positionedEvents)
@@ -263,6 +276,30 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
                                         pe.leftFraction * width,
                                         pe.widthFraction * width,
                                         palette,
+                                      ),
+                                    if (isToday)
+                                      Positioned(
+                                        top: _getTopOffset(now) - 4, // center the 8px dot/line vertically
+                                        left: 0,
+                                        right: 0,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: const BoxDecoration(
+                                                color: Colors.redAccent,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Container(
+                                                height: 2,
+                                                color: Colors.redAccent,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                   ],
                                 );

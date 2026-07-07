@@ -33,8 +33,7 @@ final monthEventsProvider =
   final events = await repo.listEvents(rangeStart: start, rangeEnd: end);
 
   // Fetch local tasks
-  final tasksAsync = ref.watch(calendarTasksProvider);
-  final entries = tasksAsync.value ?? [];
+  final entries = await ref.watch(calendarTasksProvider.future);
 
   // Group by task ID to avoid duplicates from tag color joins
   final map = <String, TaskCalendarEntry>{};
@@ -70,12 +69,10 @@ final monthEventsProvider =
   }).toList();
 
   // Fetch local habits
-  final habitsAsync = ref.watch(calendarHabitsProvider);
-  final habitsList = habitsAsync.value ?? [];
+  final habitsList = await ref.watch(calendarHabitsProvider.future);
 
   // Fetch habit logs
-  final habitLogsAsync = ref.watch(calendarHabitLogsProvider);
-  final habitLogsList = habitLogsAsync.value ?? [];
+  final habitLogsList = await ref.watch(calendarHabitLogsProvider.future);
 
   final habitEvents = <CalendarEvent>[];
   for (final habit in habitsList) {
@@ -98,7 +95,7 @@ final monthEventsProvider =
 
           habitEvents.add(
             CalendarEvent(
-              id: 'habit:${habit.id}:${day.year}-${day.month}-${day.day}',
+              id: 'habit:${habit.id}:${day.toIso8601String().split('T')[0]}',
               title: '$prefix${habit.name}',
               description: 'Habit Goal: ${habit.goalType == 'binary' ? 'Binary' : '${habit.goalAmount} ${habit.goalUnit}'}',
               start: habitStart,
