@@ -12,6 +12,7 @@ import '../../alarms/domain/alarm_preset.dart';
 import '../../alarms/domain/reminder_offset.dart';
 import '../../../core/settings/shared_preferences_provider.dart';
 import '../../auth/google/google_auth_repository.dart';
+import '../../../core/utils/dev_logger.dart';
 import '../domain/calendar_event.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 
@@ -430,7 +431,17 @@ class CalendarRepository {
     try {
       await api.events.delete(calendarId, eventId);
     } on gcal.DetailedApiRequestError catch (e) {
-      if (e.status != 404 && e.status != 410) {
+      if (e.status == 403) {
+        DevLogger.log('Delete forbidden (403). Trying to decline the event instead.');
+        try {
+          final event = await getEvent(calendarId, eventId);
+          if (event != null) {
+            await respondToEvent(event, RsvpStatus.declined);
+          }
+        } catch (declineError) {
+          DevLogger.logError('Failed to decline forbidden event: $declineError');
+        }
+      } else if (e.status != 404 && e.status != 410) {
         rethrow;
       }
     }
