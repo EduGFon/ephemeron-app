@@ -12,6 +12,7 @@ import '../google/google_auth_provider.dart';
 import '../google/google_auth_repository.dart';
 import 'google_sign_in_button.dart';
 import '../../../core/utils/safe_secure_storage.dart';
+import '../../sync/application/sync_service.dart';
 
 class AuthScreen extends ConsumerWidget {
   const AuthScreen({super.key});
@@ -137,6 +138,8 @@ class _GoogleCalendarCard extends ConsumerWidget {
       } on Exception {
         // Swallowed on purpose — see comment above.
       }
+      // Trigger sync immediately after successful sign-in
+      unawaited(ref.read(syncServiceProvider.notifier).sync());
     } on GoogleAuthCancelledException {
       // User backed out — not an error, nothing to show.
     } on GoogleAuthException catch (e) {
