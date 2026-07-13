@@ -1317,6 +1317,31 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
   // ── Save ──────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
+    final hasAttendees = _attendees.isNotEmpty || (widget.existingEvent?.attendees.isNotEmpty ?? false);
+    if (hasAttendees) {
+      final sendEmails = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Send emails to attendees?'),
+          content: const Text('Would you like to send/re-send email updates or invitations to the other attendees?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Yes'),
+            ),
+          ],
+        ),
+      );
+      if (sendEmails == null) {
+        return;
+      }
+      _sendInvites = sendEmails;
+    }
+
     setState(() => _isSaving = true);
 
     final repo = ref.read(calendarRepositoryProvider);

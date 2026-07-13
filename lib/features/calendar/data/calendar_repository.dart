@@ -294,6 +294,12 @@ class CalendarRepository {
     }
     await _cacheEvents([result]);
     await _scheduleEventAlarms([result]);
+
+    if (result.attendees.isNotEmpty) {
+      final start = DateTime(result.start.year, result.start.month - 1, 1);
+      final end = DateTime(result.start.year, result.start.month + 3, 1);
+      unawaited(refreshEventsFromRemote(rangeStart: start, rangeEnd: end));
+    }
     return result;
   }
 
@@ -317,10 +323,6 @@ class CalendarRepository {
       await sharedPrefs.setString('event_alarm_preset_${event.id}', preset.name);
     }
 
-    final existing = await getEvent(event.calendarId, event.id);
-    final dateChanged = existing != null &&
-        (existing.start != event.start || existing.end != event.end);
-
     final localTimeZone = await _getLocalTimeZone();
     final updated = await api.events.update(
       event.toGoogle(localTimeZone: localTimeZone),
@@ -333,7 +335,7 @@ class CalendarRepository {
     await _cacheEvents([result]);
     await _scheduleEventAlarms([result]);
 
-    if (result.attendees.isNotEmpty && dateChanged) {
+    if (result.attendees.isNotEmpty) {
       final start = DateTime(result.start.year, result.start.month - 1, 1);
       final end = DateTime(result.start.year, result.start.month + 3, 1);
       unawaited(refreshEventsFromRemote(rangeStart: start, rangeEnd: end));
