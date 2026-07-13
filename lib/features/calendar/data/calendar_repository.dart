@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async' show unawaited;
 import 'package:drift/drift.dart';
 import 'package:googleapis/calendar/v3.dart' as gcal;
 import 'package:http/http.dart' as http;
@@ -218,6 +219,12 @@ class CalendarRepository {
       );
       final events = (result.items ?? []).map((e) => CalendarEvent.fromGoogle(e, calendarId: 'primary')).toList();
       allEvents.addAll(events);
+      await (_db.delete(_db.cachedCalendarEvents)
+            ..where((e) =>
+                e.calendarId.equals('primary') &
+                e.start.isSmallerOrEqualValue(rangeEnd) &
+                e.end.isBiggerOrEqualValue(rangeStart)))
+          .go();
       await _cacheEvents(events, calendarId: 'primary');
     } else {
       final futures = calendars.map((cal) async {
@@ -232,6 +239,12 @@ class CalendarRepository {
             orderBy: 'startTime',
           );
           final events = (result.items ?? []).map((e) => CalendarEvent.fromGoogle(e, calendarId: calId)).toList();
+          await (_db.delete(_db.cachedCalendarEvents)
+                ..where((e) =>
+                    e.calendarId.equals(calId) &
+                    e.start.isSmallerOrEqualValue(rangeEnd) &
+                    e.end.isBiggerOrEqualValue(rangeStart)))
+              .go();
           await _cacheEvents(events, calendarId: calId);
           return events;
         } catch (_) {
@@ -279,8 +292,16 @@ class CalendarRepository {
     if (preset != null) {
       await sharedPrefs.setString('event_alarm_preset_${result.id}', preset.name);
     }
-    await _cacheEvents([result]);
-    await _scheduleEventAlarms([result]);
+
+    final isRecurring = result.recurrence != null && result.recurrence!.isNotEmpty;
+    if (!isRecurring) {
+      await _cacheEvents([result]);
+      await _scheduleEventAlarms([result]);
+    } else {
+      final start = DateTime(result.start.year, result.start.month - 1, 1);
+      final end = DateTime(result.start.year, result.start.month + 3, 1);
+      unawaited(refreshEventsFromRemote(rangeStart: start, rangeEnd: end));
+    }
     return result;
   }
 
@@ -312,8 +333,16 @@ class CalendarRepository {
       sendUpdates: sendInvites ? 'all' : 'none',
     );
     final result = CalendarEvent.fromGoogle(updated, calendarId: event.calendarId);
-    await _cacheEvents([result]);
-    await _scheduleEventAlarms([result]);
+
+    final isRecurring = result.recurrence != null && result.recurrence!.isNotEmpty;
+    if (!isRecurring) {
+      await _cacheEvents([result]);
+      await _scheduleEventAlarms([result]);
+    } else {
+      final start = DateTime(result.start.year, result.start.month - 1, 1);
+      final end = DateTime(result.start.year, result.start.month + 3, 1);
+      unawaited(refreshEventsFromRemote(rangeStart: start, rangeEnd: end));
+    }
     return result;
   }
 
