@@ -127,6 +127,9 @@ class FocusTimerController extends Notifier<FocusTimerState> {
     _accumulatedBeforePause = state.elapsed;
     state = state.copyWith(isRunning: false);
     unawaited(WakelockPlus.disable());
+    unawaited(ref
+        .read(alarmSchedulerProvider)
+        .cancelOngoingNotification(_ongoingNotificationId));
   }
 
   Future<void> resume() => start();

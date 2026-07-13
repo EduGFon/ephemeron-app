@@ -418,33 +418,70 @@ class AlarmScheduler {
   }) async {
     if (kIsWeb || Platform.isLinux) return;
 
+    await requestPermissions();
+
     final whenMs = isCountdown && duration != null
         ? DateTime.now().add(duration).millisecondsSinceEpoch
         : startedAt.millisecondsSinceEpoch;
+
+    final details = AndroidNotificationDetails(
+      _lightChannelId,
+      'Reminders',
+      ongoing: true,
+      autoCancel: false,
+      usesChronometer: true,
+      chronometerCountDown: isCountdown,
+      when: whenMs,
+      showWhen: true,
+      importance: Importance.high,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.status,
+    );
+
+    if (Platform.isAndroid) {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (android != null) {
+        try {
+          await android.startForegroundService(
+            id: id,
+            title: title,
+            body: isCountdown ? 'Focusing...' : 'Stopwatch running',
+            notificationDetails: details,
+          );
+          return;
+        } catch (e) {
+          debugPrint('Failed to start foreground service: $e');
+        }
+      }
+    }
 
     await _plugin.show(
       id: id,
       title: title,
       body: isCountdown ? 'Focusing...' : 'Stopwatch running',
       notificationDetails: NotificationDetails(
-        android: AndroidNotificationDetails(
-          _lightChannelId,
-          'Reminders',
-          ongoing: true,
-          autoCancel: false,
-          usesChronometer: true,
-          chronometerCountDown: isCountdown,
-          when: whenMs,
-          showWhen: true,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-          category: AndroidNotificationCategory.status,
-        ),
+        android: details,
       ),
     );
   }
 
-  Future<void> cancelOngoingNotification(int id) => _plugin.cancel(id: id);
+  Future<void> cancelOngoingNotification(int id) async {
+    if (kIsWeb || Platform.isLinux) return;
+
+    if (Platform.isAndroid) {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (android != null) {
+        try {
+          await android.stopForegroundService();
+        } catch (e) {
+          debugPrint('Failed to stop foreground service: $e');
+        }
+      }
+    }
+    await _plugin.cancel(id: id);
+  }
 
   NotificationDetails _detailsForPreset(AlarmPreset preset) {
     final actions = [
