@@ -5,6 +5,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../core/settings/shared_preferences_provider.dart';
 import '../../alarms/application/alarm_scheduler_provider.dart';
+import '../../alarms/application/promoted_notification_channel.dart';
 import 'focus_metrics_providers.dart';
 import '../domain/focus_mode.dart';
 import 'focus_repository_provider.dart';
@@ -93,6 +94,18 @@ class FocusTimerController extends Notifier<FocusTimerState> {
       duration: isPomo ? (state.pomodoroTarget - state.elapsed) : null,
     );
 
+    // Android 16+: also show the promoted-ongoing pill in the status bar.
+    // On older versions this is a silent no-op inside MainActivity.
+    final pillWhen = isPomo
+        ? now.add(state.pomodoroTarget - state.elapsed).millisecondsSinceEpoch
+        : now.subtract(state.elapsed).millisecondsSinceEpoch;
+    unawaited(PromotedNotificationChannel.show(
+      title: isPomo ? 'Pomodoro' : 'Focus',
+      body: isPomo ? 'Time remaining' : 'Session running',
+      whenMs: pillWhen,
+      isCountdown: isPomo,
+    ));
+
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
@@ -130,6 +143,7 @@ class FocusTimerController extends Notifier<FocusTimerState> {
     unawaited(ref
         .read(alarmSchedulerProvider)
         .cancelOngoingNotification(_ongoingNotificationId));
+    unawaited(PromotedNotificationChannel.cancel());
   }
 
   Future<void> resume() => start();
@@ -163,6 +177,7 @@ class FocusTimerController extends Notifier<FocusTimerState> {
     await ref
         .read(alarmSchedulerProvider)
         .cancelOngoingNotification(_ongoingNotificationId);
+    unawaited(PromotedNotificationChannel.cancel());
 
     if (sessionId != null) {
       ref.read(focusMetricsRefreshProvider.notifier).state++;
