@@ -1,18 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/utils/safe_secure_storage.dart';
 import 'google_auth_repository.dart';
 
 class DesktopGoogleAuthRepository extends GoogleAuthRepository {
   DesktopGoogleAuthRepository();
 
   final _accountController = StreamController<GoogleAuthAccount?>.broadcast();
-  final _storage = const FlutterSecureStorage();
+  final _storage = const SafeSecureStorage();
   
   GoogleAuthAccount? _currentAccount;
   String? _accessToken;

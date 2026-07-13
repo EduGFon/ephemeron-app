@@ -1,4 +1,4 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/utils/safe_secure_storage.dart';
 
 /// Persists the backend refresh token in platform-native secure storage
 /// (Keystore on Android, Keychain on iOS/macOS, DPAPI on Windows,
@@ -13,7 +13,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class SecureTokenStorage {
   const SecureTokenStorage._();
 
-  static const _storage = FlutterSecureStorage();
+  static const _storage = SafeSecureStorage();
 
   static const _refreshTokenKey = 'backend.refreshToken';
   static const _userIdKey = 'backend.userId';
