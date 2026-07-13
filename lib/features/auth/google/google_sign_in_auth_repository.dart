@@ -108,14 +108,6 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
     _ensureInitialized();
     DevLogger.log("Starting Google Sign-In authenticate flow...");
     try {
-      // Clear any stale Credential Manager state before authenticating.
-      // Without this, Android throws [16] 'Account reauth failed' when a
-      // previous credential is cached but no longer valid.
-      try {
-        await _instance.signOut();
-      } catch (_) {
-        // Ignore — we only care about the fresh sign-in below.
-      }
       await _instance.authenticate();
       DevLogger.log("Google Sign-In authenticate flow call completed.");
     } on GoogleSignInException catch (e, stack) {
