@@ -131,7 +131,8 @@ final dayEventsProvider =
   final month = DateTime(day.year, day.month, 1);
   final monthEvents = ref.watch(monthEventsProvider(month)).value ?? const [];
   return monthEvents.where((e) {
-    final eventDay = DateTime(e.start.year, e.start.month, e.start.day);
+    final sLocal = e.start.toLocal();
+    final eventDay = DateTime(sLocal.year, sLocal.month, sLocal.day);
     final targetDay = DateTime(day.year, day.month, day.day);
     return eventDay == targetDay ||
         (e.isAllDay && !e.start.isAfter(targetDay) && e.end.isAfter(targetDay));

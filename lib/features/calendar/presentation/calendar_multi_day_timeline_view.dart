@@ -438,8 +438,10 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
     final allDayList = widget.events.where((e) {
       if (!e.isAllDay) return false;
       final targetDay = DateTime(day.year, day.month, day.day);
-      final startZero = DateTime(e.start.year, e.start.month, e.start.day);
-      final endZero = DateTime(e.end.year, e.end.month, e.end.day);
+      final sLocal = e.start.toLocal();
+      final eLocal = e.end.toLocal();
+      final startZero = DateTime(sLocal.year, sLocal.month, sLocal.day);
+      final endZero = DateTime(eLocal.year, eLocal.month, eLocal.day);
       return !targetDay.isBefore(startZero) && targetDay.isBefore(endZero);
     }).toList();
 
@@ -473,7 +475,8 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
     return widget.events.where((e) {
       if (e.isAllDay) return false;
       final targetDay = DateTime(day.year, day.month, day.day);
-      final eventDay = DateTime(e.start.year, e.start.month, e.start.day);
+      final sLocal = e.start.toLocal();
+      final eventDay = DateTime(sLocal.year, sLocal.month, sLocal.day);
       return eventDay == targetDay;
     }).toList();
   }
@@ -539,6 +542,7 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
             final calendarRepo = ref.read(calendarRepositoryProvider);
             final messenger = ScaffoldMessenger.of(context);
 
+            CalendarEvent? originalEvent;
             try {
               if (oldDraggingId.startsWith('task:')) {
                 final taskId = oldDraggingId.substring(5);
@@ -550,15 +554,41 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
               } else if (oldDraggingId.startsWith('habit:')) {
                 throw Exception('Habits cannot be dragged. Edit the habit to change its reminder time.');
               } else {
-                final originalEvent = widget.events.firstWhere((e) => e.id == oldDraggingId);
+                originalEvent = widget.events.firstWhere((e) => e.id == oldDraggingId);
                 final updated = originalEvent.copyWith(
                   start: newStart,
                   end: newEnd,
                 );
+
+                await calendarRepo.cacheEvents([updated]);
+                final sLocal = originalEvent.start.toLocal();
+                final nLocal = newStart.toLocal();
+                final oldMonth = DateTime(sLocal.year, sLocal.month, 1);
+                final newMonth = DateTime(nLocal.year, nLocal.month, 1);
+                ref.invalidate(monthEventsProvider(oldMonth));
+                if (oldMonth != newMonth) {
+                  ref.invalidate(monthEventsProvider(newMonth));
+                }
+
                 await calendarRepo.updateEvent(updated);
+              }
+              if (mounted) {
+                final nLocal = newStart.toLocal();
+                ref.invalidate(monthEventsProvider(DateTime(nLocal.year, nLocal.month, 1)));
               }
             } catch (e) {
               if (mounted) {
+                if (originalEvent != null) {
+                  await calendarRepo.cacheEvents([originalEvent]);
+                  final sLocal = originalEvent.start.toLocal();
+                  final nLocal = newStart.toLocal();
+                  final oldMonth = DateTime(sLocal.year, sLocal.month, 1);
+                  final newMonth = DateTime(nLocal.year, nLocal.month, 1);
+                  ref.invalidate(monthEventsProvider(oldMonth));
+                  if (oldMonth != newMonth) {
+                    ref.invalidate(monthEventsProvider(newMonth));
+                  }
+                }
                 final msg = e is CalendarPermissionDeniedException
                     ? e.message
                     : 'Failed to update event: $e';

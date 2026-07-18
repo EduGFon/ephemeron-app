@@ -103,12 +103,14 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
     // Filter events for the selected day
     final dayEvents = widget.events.where((e) {
       final targetDay = DateTime(widget.selectedDay.year, widget.selectedDay.month, widget.selectedDay.day);
+      final sLocal = e.start.toLocal();
+      final eLocal = e.end.toLocal();
       if (e.isAllDay) {
-        final startZero = DateTime(e.start.year, e.start.month, e.start.day);
-        final endZero = DateTime(e.end.year, e.end.month, e.end.day);
+        final startZero = DateTime(sLocal.year, sLocal.month, sLocal.day);
+        final endZero = DateTime(eLocal.year, eLocal.month, eLocal.day);
         return !targetDay.isBefore(startZero) && targetDay.isBefore(endZero);
       }
-      final eventDay = DateTime(e.start.year, e.start.month, e.start.day);
+      final eventDay = DateTime(sLocal.year, sLocal.month, sLocal.day);
       return eventDay == targetDay;
     }).toList();
 
@@ -457,6 +459,7 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
             final calendarRepo = ref.read(calendarRepositoryProvider);
             final messenger = ScaffoldMessenger.of(context);
 
+            CalendarEvent? originalEvent;
             try {
               if (oldDraggingId.startsWith('task:')) {
                 final taskId = oldDraggingId.substring(5);
@@ -468,25 +471,47 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
               } else if (oldDraggingId.startsWith('habit:')) {
                 throw Exception('Habits cannot be dragged. Edit the habit to change its reminder time.');
               } else {
-                final originalEvent = widget.events.firstWhere((e) => e.id == oldDraggingId);
+                originalEvent = widget.events.firstWhere((e) => e.id == oldDraggingId);
                 final updated = originalEvent.copyWith(
                   start: newStart,
                   end: newEnd,
                 );
+
+                await calendarRepo.cacheEvents([updated]);
+                final sLocal = originalEvent.start.toLocal();
+                final nLocal = newStart.toLocal();
+                final oldMonth = DateTime(sLocal.year, sLocal.month, 1);
+                final newMonth = DateTime(nLocal.year, nLocal.month, 1);
+                ref.invalidate(monthEventsProvider(oldMonth));
+                if (oldMonth != newMonth) {
+                  ref.invalidate(monthEventsProvider(newMonth));
+                }
+
                 await calendarRepo.updateEvent(updated);
               }
               if (mounted) {
-                ref.invalidate(monthEventsProvider(DateTime(newStart.year, newStart.month, 1)));
+                final nLocal = newStart.toLocal();
+                ref.invalidate(monthEventsProvider(DateTime(nLocal.year, nLocal.month, 1)));
               }
             } catch (e) {
               if (mounted) {
+                if (originalEvent != null) {
+                  await calendarRepo.cacheEvents([originalEvent]);
+                  final sLocal = originalEvent.start.toLocal();
+                  final nLocal = newStart.toLocal();
+                  final oldMonth = DateTime(sLocal.year, sLocal.month, 1);
+                  final newMonth = DateTime(nLocal.year, nLocal.month, 1);
+                  ref.invalidate(monthEventsProvider(oldMonth));
+                  if (oldMonth != newMonth) {
+                    ref.invalidate(monthEventsProvider(newMonth));
+                  }
+                }
                 final msg = e is CalendarPermissionDeniedException
                     ? 'Cannot move event: Calendar is read-only or permission is denied (403).'
                     : 'Failed to update event: $e';
                 messenger.showSnackBar(
                   SnackBar(content: Text(msg)),
                 );
-                ref.invalidate(monthEventsProvider(DateTime(newStart.year, newStart.month, 1)));
               }
             }
           }

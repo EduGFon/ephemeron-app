@@ -120,13 +120,15 @@ class CalendarMonthGridView extends ConsumerWidget {
 
     // Filter events for this specific day
     final dayEvents = events.where((e) {
-      final eventDay = DateTime(e.start.year, e.start.month, e.start.day);
+      final sLocal = e.start.toLocal();
+      final eLocal = e.end.toLocal();
+      final eventDay = DateTime(sLocal.year, sLocal.month, sLocal.day);
       final targetDay = DateTime(day.year, day.month, day.day);
       
       if (e.isAllDay) {
         // Multi-day all-day event checks
-        final startZero = DateTime(e.start.year, e.start.month, e.start.day);
-        final endZero = DateTime(e.end.year, e.end.month, e.end.day);
+        final startZero = DateTime(sLocal.year, sLocal.month, sLocal.day);
+        final endZero = DateTime(eLocal.year, eLocal.month, eLocal.day);
         return !targetDay.isBefore(startZero) && targetDay.isBefore(endZero);
       }
       

@@ -78,7 +78,7 @@ class CalendarRepository {
     }
   }
 
-  Future<void> _cacheEvents(List<CalendarEvent> events, {String? calendarId}) async {
+  Future<void> cacheEvents(List<CalendarEvent> events, {String? calendarId}) async {
     for (final e in events) {
       final calId = calendarId ?? e.calendarId;
       await _db.into(_db.cachedCalendarEvents).insert(
@@ -105,6 +105,10 @@ class CalendarRepository {
       );
     }
   }
+
+  Future<void> _cacheEvents(List<CalendarEvent> events, {String? calendarId}) =>
+      cacheEvents(events, calendarId: calendarId);
+
 
   Future<List<CalendarEvent>> _loadCachedEvents(DateTime rangeStart, DateTime rangeEnd) async {
     final rows = await (_db.select(_db.cachedCalendarEvents)
@@ -302,6 +306,10 @@ class CalendarRepository {
     if (_authRepository.currentAccount == null) {
       throw const CalendarNotConnectedException();
     }
+
+    // Immediately cache updated event locally so DB reflects changes right away
+    await cacheEvents([event]);
+    await _scheduleEventAlarms([event]);
 
     final api = await _api();
     if (preset != null) {
