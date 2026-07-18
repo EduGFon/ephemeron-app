@@ -51,6 +51,7 @@ class CalendarMultiDayTimelineView extends ConsumerStatefulWidget {
 class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayTimelineView> {
   String? _draggingEventId;
   double _dragOriginalTop = 0.0;
+  DateTime? _dragOriginalStart;
   DateTime? _dragCurrentStart;
   DateTime? _dragCurrentEnd;
   final Map<String, ({DateTime start, DateTime end})> _pendingMovedEvents = {};
@@ -486,6 +487,9 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
 
   List<CalendarEvent> _getTimedEventsForDay(DateTime day) {
     final mappedEvents = widget.events.map((e) {
+      if (e.id == _draggingEventId && _dragCurrentStart != null && _dragCurrentEnd != null) {
+        return e.copyWith(start: _dragCurrentStart!, end: _dragCurrentEnd!);
+      }
       final pending = _pendingMovedEvents[e.id];
       if (pending != null) {
         if (e.start.isAtSameMomentAs(pending.start) && e.end.isAtSameMomentAs(pending.end)) {
@@ -545,16 +549,22 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
           setState(() {
             _draggingEventId = event.id;
             _dragOriginalTop = _getTopOffset(sLocal);
+            _dragOriginalStart = sLocal;
             _dragCurrentStart = sLocal;
             _dragCurrentEnd = sLocal.add(duration);
           });
         },
         onLongPressMoveUpdate: (details) {
-          if (_draggingEventId == event.id) {
+          if (_draggingEventId == event.id && _dragOriginalStart != null) {
             final duration = event.end.difference(event.start);
             final hourHeight = ref.read(calendarHourHeightProvider);
             final newTop = (_dragOriginalTop + details.localOffsetFromOrigin.dy).clamp(0.0, 24.0 * hourHeight);
-            final newStart = _getDateTimeFromTop(newTop, event.start.toLocal());
+
+            final dayColumnWidth = (MediaQuery.of(context).size.width - CalendarMultiDayTimelineView.timeColumnWidth) / widget.daysCount;
+            final dayShift = (details.localOffsetFromOrigin.dx / dayColumnWidth).round();
+            final targetDay = DateTime(_dragOriginalStart!.year, _dragOriginalStart!.month, _dragOriginalStart!.day + dayShift);
+
+            final newStart = _getDateTimeFromTop(newTop, targetDay);
             if (_dragCurrentStart != newStart) {
               if (ref.read(appSettingsProvider).hapticsEnabled) {
                 HapticFeedback.selectionClick();
