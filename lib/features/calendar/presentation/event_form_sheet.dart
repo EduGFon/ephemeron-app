@@ -1441,6 +1441,8 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
         String msg = 'Failed to save event: $e';
         if (e is CalendarNotConnectedException) {
           msg = 'Calendar is not connected. Please log in in Settings.';
+        } else if (e is CalendarPermissionDeniedException) {
+          msg = 'Permission denied (403): This calendar is read-only or you don\'t have edit access.';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg)),

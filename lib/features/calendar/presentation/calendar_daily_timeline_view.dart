@@ -7,6 +7,7 @@ import 'package:drift/drift.dart' show Value;
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
 import '../application/calendar_providers.dart';
+import '../data/calendar_repository.dart';
 import '../domain/calendar_event.dart';
 import 'event_form_sheet.dart';
 import '../../tasks/presentation/task_form_sheet.dart';
@@ -423,24 +424,37 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
 
             final taskRepo = ref.read(taskRepositoryProvider);
             final calendarRepo = ref.read(calendarRepositoryProvider);
+            final messenger = ScaffoldMessenger.of(context);
 
-            if (oldDraggingId.startsWith('task:')) {
-              final taskId = oldDraggingId.substring(5);
-              await taskRepo.updateTask(
-                taskId,
-                dueDate: Value(newStart),
-                dueHasTime: true,
-              );
-            } else {
-              final originalEvent = widget.events.firstWhere((e) => e.id == oldDraggingId);
-              final updated = originalEvent.copyWith(
-                start: newStart,
-                end: newEnd,
-              );
-              await calendarRepo.updateEvent(updated);
-            }
-            if (mounted) {
-              ref.invalidate(monthEventsProvider(DateTime(newStart.year, newStart.month, 1)));
+            try {
+              if (oldDraggingId.startsWith('task:')) {
+                final taskId = oldDraggingId.substring(5);
+                await taskRepo.updateTask(
+                  taskId,
+                  dueDate: Value(newStart),
+                  dueHasTime: true,
+                );
+              } else {
+                final originalEvent = widget.events.firstWhere((e) => e.id == oldDraggingId);
+                final updated = originalEvent.copyWith(
+                  start: newStart,
+                  end: newEnd,
+                );
+                await calendarRepo.updateEvent(updated);
+              }
+              if (mounted) {
+                ref.invalidate(monthEventsProvider(DateTime(newStart.year, newStart.month, 1)));
+              }
+            } catch (e) {
+              if (mounted) {
+                final msg = e is CalendarPermissionDeniedException
+                    ? 'Cannot move event: Calendar is read-only or permission is denied (403).'
+                    : 'Failed to update event: $e';
+                messenger.showSnackBar(
+                  SnackBar(content: Text(msg)),
+                );
+                ref.invalidate(monthEventsProvider(DateTime(newStart.year, newStart.month, 1)));
+              }
             }
           }
         },

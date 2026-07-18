@@ -20,6 +20,16 @@ class CalendarNotConnectedException implements Exception {
   const CalendarNotConnectedException();
 }
 
+class CalendarPermissionDeniedException implements Exception {
+  final String message;
+  const CalendarPermissionDeniedException([
+    this.message = 'Permission denied (403): You do not have edit access to this calendar.',
+  ]);
+
+  @override
+  String toString() => message;
+}
+
 /// Unlike TaskRepository, Google Calendar itself is the source of truth
 /// here — there's no local mirror to fall back on, so failures surface
 /// directly to the UI rather than being swallowed as best-effort (see
@@ -227,6 +237,16 @@ class CalendarRepository {
     return allEvents;
   }
 
+  Never _handleApiError(Object e) {
+    if (e is gcal.DetailedApiRequestError && e.status == 403) {
+      throw const CalendarPermissionDeniedException();
+    }
+    if (e.toString().contains('403') || e.toString().contains('Forbidden')) {
+      throw const CalendarPermissionDeniedException();
+    }
+    throw e;
+  }
+
   Future<CalendarEvent> createEvent(
     CalendarEvent event, {
     AlarmPreset? preset,
@@ -240,12 +260,17 @@ class CalendarRepository {
     final api = await _api();
     final localTimeZone = await _getLocalTimeZone();
     final body = event.toGoogle(localTimeZone: localTimeZone);
-    final created = await api.events.insert(
-      body,
-      event.calendarId,
-      conferenceDataVersion: addVideoConference ? 1 : null,
-      sendUpdates: sendInvites ? 'all' : 'none',
-    );
+    gcal.Event created;
+    try {
+      created = await api.events.insert(
+        body,
+        event.calendarId,
+        conferenceDataVersion: addVideoConference ? 1 : null,
+        sendUpdates: sendInvites ? 'all' : 'none',
+      );
+    } catch (e) {
+      _handleApiError(e);
+    }
     final result = CalendarEvent.fromGoogle(created, calendarId: event.calendarId);
     if (preset != null) {
       await sharedPrefs.setString('event_alarm_preset_${result.id}', preset.name);
@@ -284,13 +309,18 @@ class CalendarRepository {
     }
 
     final localTimeZone = await _getLocalTimeZone();
-    final updated = await api.events.update(
-      event.toGoogle(localTimeZone: localTimeZone),
-      event.calendarId,
-      event.id,
-      conferenceDataVersion: addVideoConference ? 1 : null,
-      sendUpdates: sendInvites ? 'all' : 'none',
-    );
+    gcal.Event updated;
+    try {
+      updated = await api.events.update(
+        event.toGoogle(localTimeZone: localTimeZone),
+        event.calendarId,
+        event.id,
+        conferenceDataVersion: addVideoConference ? 1 : null,
+        sendUpdates: sendInvites ? 'all' : 'none',
+      );
+    } catch (e) {
+      _handleApiError(e);
+    }
     final result = CalendarEvent.fromGoogle(updated, calendarId: event.calendarId);
 
     final isRecurring = result.recurrence != null && result.recurrence!.isNotEmpty;
@@ -324,32 +354,37 @@ class CalendarRepository {
     final api = await _api();
     // We need to patch the self-attendee's responseStatus.
     // The safest way is to fetch the full event, mutate the self attendee, and patch.
-    final gcalEvent = await api.events.get(event.calendarId, event.id);
-    final attendees = gcalEvent.attendees ?? [];
-    bool foundSelf = false;
-    for (final a in attendees) {
-      if (a.self == true) {
-        a.responseStatus = status.googleStatus;
-        foundSelf = true;
-        break;
+    gcal.Event updated;
+    try {
+      final gcalEvent = await api.events.get(event.calendarId, event.id);
+      final attendees = gcalEvent.attendees ?? [];
+      bool foundSelf = false;
+      for (final a in attendees) {
+        if (a.self == true) {
+          a.responseStatus = status.googleStatus;
+          foundSelf = true;
+          break;
+        }
       }
+      if (!foundSelf) {
+        // If the user is not in the attendee list, add them
+        final selfEmail = _authRepository.currentAccount?.email;
+        attendees.add(gcal.EventAttendee(
+          email: selfEmail,
+          responseStatus: status.googleStatus,
+          self: true,
+        ));
+      }
+      gcalEvent.attendees = attendees;
+      updated = await api.events.patch(
+        gcalEvent,
+        event.calendarId,
+        event.id,
+        sendUpdates: sendInvites ? 'all' : 'none',
+      );
+    } catch (e) {
+      _handleApiError(e);
     }
-    if (!foundSelf) {
-      // If the user is not in the attendee list, add them
-      final selfEmail = _authRepository.currentAccount?.email;
-      attendees.add(gcal.EventAttendee(
-        email: selfEmail,
-        responseStatus: status.googleStatus,
-        self: true,
-      ));
-    }
-    gcalEvent.attendees = attendees;
-    final updated = await api.events.patch(
-      gcalEvent,
-      event.calendarId,
-      event.id,
-      sendUpdates: sendInvites ? 'all' : 'none',
-    );
     final result = CalendarEvent.fromGoogle(updated, calendarId: event.calendarId);
     await _cacheEvents([result]);
 
