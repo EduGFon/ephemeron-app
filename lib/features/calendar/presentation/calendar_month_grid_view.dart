@@ -341,16 +341,16 @@ class CalendarMonthGridView extends ConsumerWidget {
       final taskId = event.id.substring(5);
       final task = await ref.read(taskRepositoryProvider).getTask(taskId);
       if (task != null && context.mounted) {
-        showTaskFormSheet(context, listId: task.listId, existingTask: task);
+        showTaskFormSheet(context, listId: task.listId, existingTask: task); // ignore: unawaited_futures
       }
     } else if (event.id.startsWith('habit:')) {
       final habitId = event.id.split(':')[1];
       final habit = await ref.read(habitRepositoryProvider).getHabit(habitId);
       if (habit != null && context.mounted) {
-        showHabitFormSheet(context, existingHabit: habit);
+        showHabitFormSheet(context, existingHabit: habit); // ignore: unawaited_futures
       }
     } else {
-      showEventFormSheet(context, initialDay: event.start, existingEvent: event);
+      showEventFormSheet(context, initialDay: event.start, existingEvent: event); // ignore: unawaited_futures
     }
   }
 

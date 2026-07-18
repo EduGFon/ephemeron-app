@@ -442,9 +442,7 @@ class TaskRepository {
 
     for (final name in tagNames) {
       var tag = await (_db.select(_db.tags)..where((t) => t.name.equals(name))).getSingleOrNull();
-      if (tag == null) {
-        tag = await createTag(name: name);
-      }
+      tag ??= await createTag(name: name);
       if (!existingTagNames.contains(name)) {
         await assignTag(taskId, tag.id);
       }

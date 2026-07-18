@@ -548,7 +548,7 @@ class _TaskListView extends ConsumerWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     buildDefaultDragHandles: false,
                     itemCount: pendingTasks.length,
-                    onReorder: (oldIdx, newIdx) async {
+                    onReorder: (oldIdx, newIdx) async { // ignore: deprecated_member_use
                       if (oldIdx < newIdx) {
                         newIdx -= 1;
                       }

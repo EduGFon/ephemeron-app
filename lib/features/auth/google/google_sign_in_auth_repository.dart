@@ -64,22 +64,27 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
 
     _eventSubscription = _instance.authenticationEvents.listen(
       (event) {
-        DevLogger.log("GoogleSignIn Auth Event: $event");
+        DevLogger.log('GoogleSignIn Auth Event: $event');
         _handleAuthEvent(event);
       },
       onError: (Object error, StackTrace stack) {
         // Stream errors come from failed authenticate() calls, not from
         // explicit sign-out events — don't treat them as sign-out.
-        DevLogger.logError("GoogleSignIn event stream error", error, stack);
+        DevLogger.logError('GoogleSignIn event stream error', error, stack);
       },
     );
 
     _initialized = true;
 
-    // Fire-and-forget: if a previous session exists, it'll arrive via
-    // the event stream above shortly. Not awaited on purpose — startup
-    // shouldn't block on this.
-    unawaited(_instance.attemptLightweightAuthentication());
+    // Awaited so that initialize() only resolves AFTER we know whether a
+    // previous session exists. This lets the splash-screen redirect see the
+    // correct account state immediately rather than racing with the event.
+    // Any failure here is non-fatal — the user just lands on /auth.
+    try {
+      await _instance.attemptLightweightAuthentication();
+    } catch (_) {
+      // Lightweight auth failed or timed out — no session to restore.
+    }
   }
 
   void _handleAuthEvent(GoogleSignInAuthenticationEvent event) {
@@ -104,20 +109,21 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
     );
   }
 
+  @override
   Future<void> signIn() async {
     _ensureInitialized();
-    DevLogger.log("Starting Google Sign-In authenticate flow...");
+    DevLogger.log('Starting Google Sign-In authenticate flow...');
     try {
       await _instance.authenticate();
-      DevLogger.log("Google Sign-In authenticate flow call completed.");
+      DevLogger.log('Google Sign-In authenticate flow call completed.');
     } on GoogleSignInException catch (e, stack) {
-      DevLogger.logError("Google Sign-In failed (GoogleSignInException)", e, stack);
+      DevLogger.logError('Google Sign-In failed (GoogleSignInException)', e, stack);
       if (e.code == GoogleSignInExceptionCode.canceled) {
         throw const GoogleAuthCancelledException();
       }
       throw GoogleAuthException(e.description ?? e.code.name);
     } catch (e, stack) {
-      DevLogger.logError("Google Sign-In failed (generic error)", e, stack);
+      DevLogger.logError('Google Sign-In failed (generic error)', e, stack);
       throw GoogleAuthException(e.toString());
     }
   }
@@ -136,32 +142,32 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
     _ensureInitialized();
     final signedInAccount = _signedInAccount;
     if (signedInAccount == null) {
-      DevLogger.logError("getAccessToken failed: No account signed in");
+      DevLogger.logError('getAccessToken failed: No account signed in');
       throw const GoogleAuthException('No Google account signed in yet.');
     }
 
-    DevLogger.log("Requesting access token for scopes: $scopes");
+    DevLogger.log('Requesting access token for scopes: $scopes');
     try {
       final existing = await signedInAccount.authorizationClient
           .authorizationForScopes(scopes);
       if (existing != null) {
-        DevLogger.log("Found existing authorized access token.");
+        DevLogger.log('Found existing authorized access token.');
         return existing.accessToken;
       }
 
-      DevLogger.log("Consent screen required. Triggering authorizeScopes...");
+      DevLogger.log('Consent screen required. Triggering authorizeScopes...');
       final authorized =
           await signedInAccount.authorizationClient.authorizeScopes(scopes);
-      DevLogger.log("authorizeScopes succeeded.");
+      DevLogger.log('authorizeScopes succeeded.');
       return authorized.accessToken;
     } on GoogleSignInException catch (e, stack) {
-      DevLogger.logError("getAccessToken failed (GoogleSignInException)", e, stack);
+      DevLogger.logError('getAccessToken failed (GoogleSignInException)', e, stack);
       if (e.code == GoogleSignInExceptionCode.canceled) {
         throw const GoogleAuthCancelledException();
       }
       throw GoogleAuthException(e.description ?? e.code.name);
     } catch (e, stack) {
-      DevLogger.logError("getAccessToken failed (generic error)", e, stack);
+      DevLogger.logError('getAccessToken failed (generic error)', e, stack);
       throw GoogleAuthException(e.toString());
     }
   }

@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../data/local/database.dart';
 import '../../../data/local/database_provider.dart';
 import '../../alarms/application/alarm_scheduler_provider.dart';
 import '../../auth/google/google_auth_provider.dart';
@@ -15,6 +14,7 @@ class CalendarHourHeightNotifier extends Notifier<double> {
   @override
   double build() => 80.0;
 
+  @override
   set state(double value) => super.state = value;
 }
 

@@ -123,9 +123,9 @@ void main() {
       final inputDate = DateTime(2026, 7, 6, 10, 0); // Monday, July 6, 2026
       
       // Repeating every Tue (2) and Thu (4)
-      final recurrence = TaskRecurrence(
+      final recurrence = const TaskRecurrence(
         type: RecurrenceType.weekly,
-        weekdays: const [2, 4],
+        weekdays: [2, 4],
       );
 
       // Next after Monday should be Tuesday (July 7)

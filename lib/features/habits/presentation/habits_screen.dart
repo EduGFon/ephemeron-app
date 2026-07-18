@@ -48,7 +48,6 @@ class HabitsScreen extends ConsumerWidget {
             bySection.putIfAbsent(habit.section, () => []).add(habit);
           }
           
-          int index = 0;
           return ListView(
             padding: const EdgeInsets.only(bottom: 120),
             children: [

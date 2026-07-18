@@ -2,14 +2,10 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../core/routing/app_router.dart';
 import '../../core/theme/theme_engine_provider.dart';
 import '../../core/theme/theme_palettes.dart';
 import '../../data/local/database.dart';
-import '../../features/calendar/application/calendar_providers.dart';
-import '../../features/calendar/presentation/event_form_sheet.dart';
 import '../../features/notes/application/notes_providers.dart';
 import '../../features/notes/data/notes_repository.dart';
 import 'note_form_sheet.dart';
@@ -441,10 +437,6 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
     9 => 'Sep', 10 => 'Oct', 11 => 'Nov', _ => 'Dec',
   };
 
-  String _formatDate(DateTime dt) {
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${months[dt.month - 1]} ${dt.day}';
-  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Dialogs

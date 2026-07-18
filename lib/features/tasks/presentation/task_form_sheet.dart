@@ -131,29 +131,25 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
             (s) => s.id == id,
             orElse: () => null as dynamic,
           );
-          if (smartList != null) {
-            if (smartList.minPriority != null) {
-              _priority = smartList.minPriority!;
-            }
-            final now = DateTime.now();
-            if (smartList.dateFilter == 'today') {
-              _dueDate = now;
-            } else if (smartList.dateFilter == 'tomorrow') {
-              _dueDate = now.add(const Duration(days: 1));
-            } else if (smartList.dateFilter == 'thisWeek' || smartList.dateFilter == 'next7Days') {
-              _dueDate = now;
-            }
-            if (smartList.tagId != null) {
-              final tags = ref.read(allTagsProvider).value;
-              if (tags != null) {
-                final tag = tags.firstWhere(
-                  (t) => t.id == smartList.tagId,
-                  orElse: () => null as dynamic,
-                );
-                if (tag != null) {
-                  _titleController.text = '#${tag.name} ';
-                }
-              }
+          if (smartList.minPriority != null) {
+            _priority = smartList.minPriority!;
+          }
+          final now = DateTime.now();
+          if (smartList.dateFilter == 'today') {
+            _dueDate = now;
+          } else if (smartList.dateFilter == 'tomorrow') {
+            _dueDate = now.add(const Duration(days: 1));
+          } else if (smartList.dateFilter == 'thisWeek' || smartList.dateFilter == 'next7Days') {
+            _dueDate = now;
+          }
+          if (smartList.tagId != null) {
+            final tags = ref.read(allTagsProvider).value;
+            if (tags != null) {
+              final tag = tags.firstWhere(
+                (t) => t.id == smartList.tagId,
+                orElse: () => null as dynamic,
+              );
+              _titleController.text = '#${tag.name} ';
             }
           }
         }
@@ -286,7 +282,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                               title: 'Delete Recurring Task?',
                             );
                             if (choice != null && mounted) {
-                              final navigator = Navigator.of(context);
+                              final navigator = Navigator.of(context); // ignore: use_build_context_synchronously
                               if (choice == RecurrenceDeleteType.onlyThis) {
                                 final nextDue = recurrence.nextOccurrence(widget.existingTask!.dueDate!);
                                 if (nextDue != null) {
@@ -311,7 +307,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                               isDestructive: true,
                             );
                             if (confirmed && mounted) {
-                              final navigator = Navigator.of(context);
+                              final navigator = Navigator.of(context); // ignore: use_build_context_synchronously
                               await ref.read(taskRepositoryProvider).softDeleteTask(widget.existingTask!.id);
                               await SessionRestore.clearDraftValues('task', widget.existingTask?.id);
                               navigator.pop();
@@ -463,8 +459,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                         side: BorderSide.none,
                         avatar: Icon(Icons.calendar_today, size: 12, color: palette.primary),
                         label: Text(
-                          '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}' +
-                          (_dueHasTime ? ' ${_dueDate!.hour.toString().padLeft(2, '0')}:${_dueDate!.minute.toString().padLeft(2, '0')}' : ''),
+                          '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}${_dueHasTime ? ' ${_dueDate!.hour.toString().padLeft(2, '0')}:${_dueDate!.minute.toString().padLeft(2, '0')}' : ''}',
                           style: TextStyle(color: palette.primary, fontSize: 11),
                         ),
                         onDeleted: () => setState(() {
@@ -586,7 +581,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                           );
                         },
                         loading: () => const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
-                        error: (e, s) => Text('Error loading subtasks', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                        error: (e, s) => const Text('Error loading subtasks', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
                       ),
                 ],
 
@@ -694,7 +689,7 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
                             contentPadding: EdgeInsets.zero,
                             title: Text('Include Specific Time', style: TextStyle(color: palette.text, fontSize: 14)),
                             value: tempHasTime,
-                            activeColor: palette.primary,
+                            activeThumbColor: palette.primary,
                             onChanged: (val) {
                               setDlgState(() {
                                 tempHasTime = val;
@@ -916,13 +911,9 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
         _recurrence = TaskRecurrence(type: tempRecurrenceType, weekdays: tempRecurrenceWeekdays);
       });
 
-      if (tempDate != null) {
-        SessionRestore.saveDraftValue('task', widget.existingTask?.id, 'dueDate', tempDate.toIso8601String());
-      } else {
-        SessionRestore.saveDraftValue('task', widget.existingTask?.id, 'dueDate', 'none');
-      }
-      SessionRestore.saveDraftValue('task', widget.existingTask?.id, 'dueHasTime', tempHasTime.toString());
-      SessionRestore.saveDraftValue('task', widget.existingTask?.id, 'alarmPreset', (tempPreset ?? AlarmPreset.light).name);
+      SessionRestore.saveDraftValue('task', widget.existingTask?.id, 'dueDate', tempDate.toIso8601String()); // ignore: unawaited_futures
+      SessionRestore.saveDraftValue('task', widget.existingTask?.id, 'dueHasTime', tempHasTime.toString()); // ignore: unawaited_futures
+      SessionRestore.saveDraftValue('task', widget.existingTask?.id, 'alarmPreset', (tempPreset ?? AlarmPreset.light).name); // ignore: unawaited_futures
     }
   }
 

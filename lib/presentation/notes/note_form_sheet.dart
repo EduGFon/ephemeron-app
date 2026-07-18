@@ -181,7 +181,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                         isDestructive: true,
                       );
                       if (confirmed && mounted) {
-                        final navigator = Navigator.of(context);
+                        final navigator = Navigator.of(context); // ignore: use_build_context_synchronously
                         await ref.read(notesRepositoryProvider).deleteNote(existingNote.id);
                         await SessionRestore.clearDraftValues('note', existingNote.id);
                         navigator.pop();
@@ -281,7 +281,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                       );
                       if (!discard) return;
                     }
-                    if (mounted) Navigator.of(context).pop();
+                    if (mounted) Navigator.of(context).pop(); // ignore: use_build_context_synchronously
                   },
                   child: Text('Cancel', style: TextStyle(color: palette.text.withValues(alpha: 0.6))),
                 ),

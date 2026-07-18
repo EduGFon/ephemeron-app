@@ -35,6 +35,11 @@ class _AuthNotifier extends ChangeNotifier {
   }
 }
 
+Future<String> _lastScreen() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString('settings.lastScreen') ?? '/calendar';
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authNotifier = _AuthNotifier(ref);
 
@@ -50,27 +55,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       final initAsync = ref.read(googleAuthInitProvider);
 
-      // While google_sign_in is still initializing, stay on /splash.
-      if (initAsync.isLoading) {
-        return location == '/splash' ? null : '/splash';
-      }
+      // Still initializing — stay on splash.
+      if (initAsync.isLoading) return location == '/splash' ? null : '/splash';
 
-      final accountAsync = ref.read(googleAccountProvider);
-      final isSignedIn = !accountAsync.isLoading &&
-          accountAsync.whenData((a) => a).value != null;
+      // Init done: read the now-settled account state.
+      final accountValue = ref.read(googleAccountProvider);
+      final isSignedIn = accountValue.hasValue && accountValue.value != null;
 
-      if (location == '/splash' || location == '/auth') {
-        if (isSignedIn) {
-          // Session restored — jump straight to last-used screen.
-          final prefs = await SharedPreferences.getInstance();
-          return prefs.getString('settings.lastScreen') ?? '/calendar';
-        }
-        // Not signed in yet: /splash → /auth; /auth stays on /auth.
-        return location == '/splash' ? '/auth' : null;
-      }
+      // Splash always redirects once init is done.
+      if (location == '/splash') return isSignedIn ? _lastScreen() : '/auth';
 
-      // Signed out while on a main screen → back to /auth.
-      if (!isSignedIn && location != '/auth') return '/auth';
+      // Auth screen: skip it if already signed in.
+      if (location == '/auth' && isSignedIn) return _lastScreen();
+
+      // Main screens: push back to auth if signed out.
+      if (location != '/auth' && !isSignedIn) return '/auth';
 
       return null;
     },

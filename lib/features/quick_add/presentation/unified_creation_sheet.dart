@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -163,7 +162,6 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
           QuickAddTarget.habit => HabitFormSheet(key: const ValueKey('habit'), unifiedHeader: header),
           QuickAddTarget.countdown => CountdownFormSheet(key: const ValueKey('countdown'), type: CountdownType.custom, unifiedHeader: header),
           QuickAddTarget.note => NoteFormSheet(key: const ValueKey('note'), unifiedHeader: header),
-          _ => const SizedBox.shrink(key: ValueKey('empty')),
         },
       ),
     );

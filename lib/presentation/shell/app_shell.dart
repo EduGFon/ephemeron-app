@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
 import '../../features/quick_add/presentation/unified_creation_sheet.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../core/settings/app_settings_provider.dart';
-import '../../core/settings/shared_preferences_provider.dart';
 import '../../core/theme/theme_engine_provider.dart';
 import '../../core/theme/theme_palettes.dart';
 import '../../data/local/database_provider.dart';
@@ -69,37 +69,37 @@ class _AppShellState extends ConsumerState<AppShell> {
       if (!mounted) return;
 
       if (menu == 'quick_add') {
-        showUnifiedCreationSheet(context);
+        unawaited(showUnifiedCreationSheet(context));
       } else if (menu == 'task') {
         if (entityId.isNotEmpty) {
           final db = ref.read(appDatabaseProvider);
           final task = await (db.select(db.tasks)..where((t) => t.id.equals(entityId))).getSingleOrNull();
           if (task != null && mounted) {
-            showTaskFormSheet(context, listId: extra, existingTask: task);
+            unawaited(showTaskFormSheet(context, listId: extra, existingTask: task));
           }
         } else {
-          showTaskFormSheet(context, listId: extra);
+          unawaited(showTaskFormSheet(context, listId: extra));
         }
       } else if (menu == 'event') {
         if (entityId.isNotEmpty) {
           final repo = ref.read(calendarRepositoryProvider);
           final event = await repo.getEvent('primary', entityId);
           if (event != null && mounted) {
-            showEventFormSheet(context, initialDay: event.start, existingEvent: event);
+            unawaited(showEventFormSheet(context, initialDay: event.start, existingEvent: event));
           }
         } else {
           final day = DateTime.tryParse(extra) ?? DateTime.now();
-          showEventFormSheet(context, initialDay: day);
+          unawaited(showEventFormSheet(context, initialDay: day));
         }
       } else if (menu == 'habit') {
         if (entityId.isNotEmpty) {
           final db = ref.read(appDatabaseProvider);
           final habit = await (db.select(db.habits)..where((h) => h.id.equals(entityId))).getSingleOrNull();
           if (habit != null && mounted) {
-            showHabitFormSheet(context, existingHabit: habit);
+            unawaited(showHabitFormSheet(context, existingHabit: habit));
           }
         } else {
-          showHabitFormSheet(context);
+          unawaited(showHabitFormSheet(context));
         }
       } else if (menu == 'countdown') {
         final type = CountdownType.values.firstWhere((t) => t.name == extra, orElse: () => CountdownType.custom);
@@ -107,10 +107,10 @@ class _AppShellState extends ConsumerState<AppShell> {
           final db = ref.read(appDatabaseProvider);
           final cd = await (db.select(db.countdowns)..where((c) => c.id.equals(entityId))).getSingleOrNull();
           if (cd != null && mounted) {
-            showCountdownFormSheet(context, type: type, existingCountdown: cd);
+            unawaited(showCountdownFormSheet(context, type: type, existingCountdown: cd));
           }
         } else {
-          showCountdownFormSheet(context, type: type);
+          unawaited(showCountdownFormSheet(context, type: type));
         }
       } else if (menu == 'note') {
         if (entityId.isNotEmpty) {

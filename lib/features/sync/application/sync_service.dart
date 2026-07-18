@@ -55,30 +55,30 @@ class SyncService extends Notifier<SyncState> {
 
     state = state.copyWith(isSyncing: true, error: null);
 
-    DevLogger.log("Starting sync with remote...");
+    DevLogger.log('Starting sync with remote...');
     try {
       // 1. Sync Calendar Events (from previous month to 3 months ahead)
       final now = DateTime.now();
       final start = DateTime(now.year, now.month - 1, 1);
       final end = DateTime(now.year, now.month + 3, 1);
       
-      DevLogger.log("Syncing calendar events from $start to $end...");
+      DevLogger.log('Syncing calendar events from $start to $end...');
       final calendarRepo = ref.read(calendarRepositoryProvider);
       await calendarRepo.refreshEventsFromRemote(rangeStart: start, rangeEnd: end);
-      DevLogger.log("Calendar events sync completed.");
+      DevLogger.log('Calendar events sync completed.');
 
       // 2. Sync Tasks
-      DevLogger.log("Syncing tasks with remote...");
+      DevLogger.log('Syncing tasks with remote...');
       final taskRepo = ref.read(taskRepositoryProvider);
       await taskRepo.syncTasksWithRemote();
-      DevLogger.log("Tasks sync completed.");
+      DevLogger.log('Tasks sync completed.');
 
       // 3. Invalidate/Refresh relevant providers to update the UI
       ref.invalidate(monthEventsProvider);
       final currentMonth = DateTime(now.year, now.month, 1);
       ref.invalidate(monthEventsProvider(currentMonth));
 
-      DevLogger.log("Sync completed successfully.");
+      DevLogger.log('Sync completed successfully.');
       state = state.copyWith(
         isSyncing: false,
         lastSyncedAt: DateTime.now(),
@@ -88,7 +88,7 @@ class SyncService extends Notifier<SyncState> {
       final settings = ref.read(appSettingsProvider);
       _setupTimer(settings.autoSync, settings.syncIntervalMinutes);
     } catch (e, stack) {
-      DevLogger.logError("Sync failed", e, stack);
+      DevLogger.logError('Sync failed', e, stack);
       state = state.copyWith(
         isSyncing: false,
         error: e.toString(),

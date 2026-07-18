@@ -573,16 +573,16 @@ class _EventTile extends ConsumerWidget {
                 final taskId = event.id.substring(5);
                 final task = await ref.read(taskRepositoryProvider).getTask(taskId);
                 if (task != null && context.mounted) {
-                  showTaskFormSheet(context, listId: task.listId, existingTask: task);
+                  showTaskFormSheet(context, listId: task.listId, existingTask: task); // ignore: unawaited_futures
                 }
               } else if (event.id.startsWith('habit:')) {
                 final habitId = event.id.split(':')[1];
                 final habit = await ref.read(habitRepositoryProvider).getHabit(habitId);
                 if (habit != null && context.mounted) {
-                  showHabitFormSheet(context, existingHabit: habit);
+                  showHabitFormSheet(context, existingHabit: habit); // ignore: unawaited_futures
                 }
               } else {
-                showEventFormSheet(
+                showEventFormSheet( // ignore: unawaited_futures
                   context,
                   initialDay: event.start,
                   existingEvent: event,
@@ -612,7 +612,7 @@ class _EventTile extends ConsumerWidget {
         final recurrence = TaskRecurrence.decode(task.recurrenceRule);
         if (recurrence.isRecurring) {
           final choice = await showRecurrenceDeleteDialog(
-            context: context,
+            context: context, // ignore: use_build_context_synchronously
             ref: ref,
             title: 'Delete Recurring Task?',
           );
@@ -627,7 +627,7 @@ class _EventTile extends ConsumerWidget {
           }
         } else {
           final confirmed = await showConfirmationDialog(
-            context: context,
+            context: context, // ignore: use_build_context_synchronously
             ref: ref,
             title: 'Delete Task?',
             content: 'Are you sure you want to delete this task? It will be moved to Trash.',

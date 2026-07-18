@@ -317,7 +317,7 @@ class _CountdownFormSheetState extends ConsumerState<CountdownFormSheet> {
     );
     if (date != null) {
       setState(() => _targetDate = date);
-      SessionRestore.saveDraftValue('countdown', widget.existingCountdown?.id, 'targetDate', date.toIso8601String());
+      SessionRestore.saveDraftValue('countdown', widget.existingCountdown?.id, 'targetDate', date.toIso8601String()); // ignore: unawaited_futures
     }
   }
 

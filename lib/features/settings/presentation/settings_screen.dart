@@ -38,8 +38,8 @@ class SettingsScreen extends ConsumerWidget {
                   return RadioListTile<AppPaletteType>(
                     title: Text(palette.name),
                     value: palette.type,
-                    groupValue: currentPalette.type,
-                    onChanged: (value) {
+                    groupValue: currentPalette.type, // ignore: deprecated_member_use
+                    onChanged: (value) { // ignore: deprecated_member_use
                       if (value != null) ref.read(themeEngineProvider.notifier).setPalette(value);
                     },
                     secondary: Container(
@@ -394,8 +394,8 @@ class SettingsScreen extends ConsumerWidget {
                 RadioListTile<int>(
                   title: Text(_dayName(day)),
                   value: day,
-                  groupValue: current,
-                  onChanged: (value) {
+                  groupValue: current, // ignore: deprecated_member_use
+                  onChanged: (value) { // ignore: deprecated_member_use
                     if (value != null) {
                       ref.read(appSettingsProvider.notifier).setCalendarStartDay(value);
                       Navigator.pop(sheetContext);
@@ -654,7 +654,7 @@ class _SyncSettingsTile extends ConsumerWidget {
                     final current = ref.read(syncServiceProvider);
                     if (current.error != null && context.mounted) {
                       final palette = ref.read(themeEngineProvider);
-                      showDialog(
+                      showDialog( // ignore: unawaited_futures
                         context: context,
                         builder: (ctx) => AlertDialog(
                           backgroundColor: palette.surface,

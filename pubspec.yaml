@@ -82,6 +82,8 @@ dependencies:
   mesh_gradient: ^1.3.8
   flutter_markdown: ^0.7.7+1
 
+  google_sign_in_platform_interface: any
+  google_sign_in_web: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

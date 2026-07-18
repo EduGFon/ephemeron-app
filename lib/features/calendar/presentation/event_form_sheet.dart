@@ -5,19 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/settings/shared_preferences_provider.dart';
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
 import '../../../data/local/database.dart';
-import '../../../data/local/database_provider.dart';
 import '../../alarms/domain/alarm_preset.dart';
 import '../../alarms/domain/reminder_offset.dart';
 import '../../alarms/application/alarm_permissions_helper.dart';
 import '../../../core/settings/session_restore.dart';
 import '../../notes/data/notes_repository.dart';
-import '../../notes/application/notes_providers.dart';
 import '../../tags/presentation/tag_autocomplete_field.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_event.dart';
@@ -193,10 +190,11 @@ class RecurrenceConfig {
     if (freq == null) return const RecurrenceConfig();
 
     RecurrenceType type = RecurrenceType.none;
-    if (freq == 'DAILY') type = RecurrenceType.daily;
-    else if (freq == 'WEEKLY') type = RecurrenceType.weekly;
-    else if (freq == 'MONTHLY') type = RecurrenceType.monthly;
-    else if (freq == 'YEARLY') type = RecurrenceType.yearly;
+    if (freq == 'DAILY') {
+      type = RecurrenceType.daily;
+    } else if (freq == 'WEEKLY') type = RecurrenceType.weekly; // ignore: curly_braces_in_flow_control_structures
+    else if (freq == 'MONTHLY') type = RecurrenceType.monthly; // ignore: curly_braces_in_flow_control_structures
+    else if (freq == 'YEARLY') type = RecurrenceType.yearly; // ignore: curly_braces_in_flow_control_structures
 
     if (type == RecurrenceType.none) return const RecurrenceConfig();
 
@@ -712,8 +710,11 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                               backgroundColor: palette.surface,
                               side: BorderSide(color: palette.text.withValues(alpha: 0.15)),
                               onSelected: (sel) => setState(() {
-                                if (sel) _selectedOffsets.add(offset);
-                                else _selectedOffsets.remove(offset);
+                                if (sel) {
+                                  _selectedOffsets.add(offset);
+                                } else {
+                                  _selectedOffsets.remove(offset);
+                                }
                               }),
                             ),
                         ],
@@ -813,7 +814,7 @@ class _EventFormSheetState extends ConsumerState<EventFormSheet> {
                 if (_notesController.text.length > _kGoogleDescriptionLimit) ...[
                   const SizedBox(width: 6),
                   Tooltip(
-                    message: 'Text over ${_kGoogleDescriptionLimit} chars is stored locally only (not synced to Google)',
+                    message: 'Text over $_kGoogleDescriptionLimit chars is stored locally only (not synced to Google)',
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

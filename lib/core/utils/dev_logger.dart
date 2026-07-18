@@ -15,16 +15,16 @@ class DevLogger {
 
   static void log(String message) {
     developer.log(message);
-    print('[DEV_LOG] $message');
+    print('[DEV_LOG] $message'); // ignore: avoid_print
     logs.add(LogEntry(message));
     if (logs.length > 200) logs.removeAt(0);
   }
 
   static void logError(String message, [dynamic error, StackTrace? stack]) {
     developer.log(message, error: error, stackTrace: stack);
-    print('[DEV_ERROR] $message: $error');
+    print('[DEV_ERROR] $message: $error'); // ignore: avoid_print
     if (stack != null) {
-      print(stack);
+      print(stack); // ignore: avoid_print
     }
     logs.add(LogEntry(message, error: error?.toString(), stackTrace: stack?.toString()));
     if (logs.length > 200) logs.removeAt(0);

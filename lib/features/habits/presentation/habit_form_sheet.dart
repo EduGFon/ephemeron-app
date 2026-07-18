@@ -89,21 +89,21 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
   @override
   void initState() {
     super.initState();
-    late final String _amountText;
+    late final String amountText;
     if (widget.existingHabit != null && widget.existingHabit!.goalAmount != null) {
-      _amountText = widget.existingHabit!.goalAmount!.toInt().toString();
+      amountText = widget.existingHabit!.goalAmount!.toInt().toString();
     } else {
-      _amountText = '';
+      amountText = '';
     }
-    _amountController = TextEditingController(text: _amountText);
+    _amountController = TextEditingController(text: amountText);
 
-    late final String _incrementText;
-    if (widget.existingHabit != null && widget.existingHabit!.logIncrement != null) {
-      _incrementText = widget.existingHabit!.logIncrement!.toInt().toString();
+    late final String incrementText;
+    if (widget.existingHabit != null) {
+      incrementText = widget.existingHabit!.logIncrement.toInt().toString();
     } else {
-      _incrementText = '1';
+      incrementText = '1';
     }
-    _incrementController = TextEditingController(text: _incrementText);
+    _incrementController = TextEditingController(text: incrementText);
 
     final habit = widget.existingHabit;
     final frequency = HabitFrequency.decode(habit?.frequencyConfig);
@@ -589,9 +589,9 @@ class _HabitFormSheetState extends ConsumerState<HabitFormSheet> {
                     _reminderMinute = time.minute;
                     _alarmPreset ??= AlarmPreset.light;
                   });
-                  SessionRestore.saveDraftValue('habit', widget.existingHabit?.id, 'reminderHour', time.hour.toString());
-                  SessionRestore.saveDraftValue('habit', widget.existingHabit?.id, 'reminderMinute', time.minute.toString());
-                  SessionRestore.saveDraftValue('habit', widget.existingHabit?.id, 'alarmPreset', (_alarmPreset ?? AlarmPreset.light).name);
+                  SessionRestore.saveDraftValue('habit', widget.existingHabit?.id, 'reminderHour', time.hour.toString()); // ignore: unawaited_futures
+                  SessionRestore.saveDraftValue('habit', widget.existingHabit?.id, 'reminderMinute', time.minute.toString()); // ignore: unawaited_futures
+                  SessionRestore.saveDraftValue('habit', widget.existingHabit?.id, 'alarmPreset', (_alarmPreset ?? AlarmPreset.light).name); // ignore: unawaited_futures
                 },
                 child: Text(
                   _reminderHour == null
