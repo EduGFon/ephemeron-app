@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/focus_metrics_providers.dart';
+import 'package:ephemeron/core/widgets/app_loading_indicator.dart';
 
 class FocusMonthScreen extends ConsumerStatefulWidget {
   const FocusMonthScreen({super.key});
@@ -108,7 +109,7 @@ class _FocusMonthScreenState extends ConsumerState<FocusMonthScreen> {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: AppLoadingIndicator()),
               error: (error, _) =>
                   Center(child: Text('Could not load totals: $error')),
             ),

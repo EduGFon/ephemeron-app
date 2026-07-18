@@ -13,6 +13,7 @@ import '../../../presentation/widgets/confirmation_dialog.dart';
 import '../../../presentation/widgets/recurrence_delete_dialog.dart';
 import '../domain/task_recurrence.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:ephemeron/core/widgets/app_loading_indicator.dart';
 
 class TasksScreen extends ConsumerStatefulWidget {
   const TasksScreen({super.key});
@@ -243,7 +244,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
           final currentId = selectedListId ?? lists.firstWhere((l) => l.isInbox, orElse: () => lists.first).id;
           return _TaskListView(listId: currentId, palette: palette);
         },
-        loading: () => Center(child: CircularProgressIndicator(color: palette.primary)),
+        loading: () => const Center(child: AppLoadingIndicator()),
         error: (error, _) => Center(
           child: Text('Could not load lists: $error', style: TextStyle(color: palette.text)),
         ),
@@ -611,11 +612,11 @@ class _TaskListView extends ConsumerWidget {
               ],
             );
           },
-          loading: () => Center(child: CircularProgressIndicator(color: palette.primary)),
+          loading: () => const Center(child: AppLoadingIndicator()),
           error: (error, _) => Center(child: Text('Could not load completed tasks: $error', style: TextStyle(color: palette.text))),
         );
       },
-      loading: () => Center(child: CircularProgressIndicator(color: palette.primary)),
+      loading: () => const Center(child: AppLoadingIndicator()),
       error: (error, _) => Center(child: Text('Could not load tasks: $error', style: TextStyle(color: palette.text))),
     );
   }

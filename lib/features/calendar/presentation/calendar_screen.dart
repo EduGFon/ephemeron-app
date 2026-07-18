@@ -27,6 +27,7 @@ import '../../sync/application/sync_service.dart';
 import '../../auth/google/google_auth_provider.dart';
 import '../../../presentation/widgets/confirmation_dialog.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:ephemeron/core/widgets/app_loading_indicator.dart';
 
 class CalendarFormatNotifier extends Notifier<CalendarFormat> {
   @override
@@ -236,7 +237,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                             events: events,
                             startDayOfWeek: settings.calendarStartDay,
                           ),
-                          loading: () => const Center(child: CircularProgressIndicator()),
+                          loading: () => const Center(child: AppLoadingIndicator()),
                           error: (err, _) => Center(child: Text('Error loading events: $err')),
                         ),
                       ),
@@ -281,7 +282,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                         : 3,
                                 startDayOfWeek: settings.calendarStartDay,
                               ),
-                              loading: () => const Center(child: CircularProgressIndicator()),
+                              loading: () => const Center(child: AppLoadingIndicator()),
                               error: (err, _) => Center(child: Text('Error loading events: $err')),
                             ),
                     ),
@@ -309,7 +310,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                     selectedDay: selectedDay,
                                     events: events,
                                   ),
-                                  loading: () => const Center(child: CircularProgressIndicator()),
+                                  loading: () => const Center(child: AppLoadingIndicator()),
                                   error: (err, _) => Center(child: Text('Error loading events: $err')),
                                 ),
                         ),
@@ -469,7 +470,7 @@ class _DayAgenda extends ConsumerWidget {
           ),
         );
       },
-      loading: () => Center(child: CircularProgressIndicator(color: palette.primary)),
+      loading: () => const Center(child: AppLoadingIndicator()),
       error: (error, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(16),

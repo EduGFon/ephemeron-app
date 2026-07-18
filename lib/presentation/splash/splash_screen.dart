@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/google/google_auth_provider.dart';
+import 'package:ephemeron/core/widgets/app_loading_indicator.dart';
 
 /// Shown at launch while [googleAuthInitProvider] completes.
 /// Once init resolves the router redirect takes over automatically.
@@ -17,7 +18,7 @@ class SplashScreen extends ConsumerWidget {
     ref.watch(googleAuthInitProvider);
 
     return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+      body: Center(child: AppLoadingIndicator()),
     );
   }
 }

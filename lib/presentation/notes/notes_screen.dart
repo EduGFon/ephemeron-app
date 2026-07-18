@@ -9,6 +9,7 @@ import '../../data/local/database.dart';
 import '../../features/notes/application/notes_providers.dart';
 import '../../features/notes/data/notes_repository.dart';
 import 'note_form_sheet.dart';
+import 'package:ephemeron/core/widgets/app_loading_indicator.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Notes screen
@@ -101,7 +102,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                   final allNotes = notesAsync.value ?? const [];
                   return _buildFoldersList(visibleFolders, allNotes, palette, ref);
                 },
-                loading: () => const SizedBox(height: 110, child: Center(child: CircularProgressIndicator())),
+                loading: () => const SizedBox(height: 110, child: Center(child: AppLoadingIndicator())),
                 error: (err, _) => Center(child: Text('Error loading folders: $err', style: TextStyle(color: palette.text))),
               ),
               const SizedBox(height: 12),

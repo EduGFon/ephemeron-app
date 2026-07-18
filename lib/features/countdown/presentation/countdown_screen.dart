@@ -11,6 +11,7 @@ import '../domain/countdown_type.dart';
 import 'countdown_form_sheet.dart';
 import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 import '../../../presentation/widgets/confirmation_dialog.dart';
+import 'package:ephemeron/core/widgets/app_loading_indicator.dart';
 
 class CountdownScreen extends ConsumerWidget {
   const CountdownScreen({super.key});
@@ -62,7 +63,7 @@ class CountdownScreen extends ConsumerWidget {
             },
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: palette.primary)),
+        loading: () => const Center(child: AppLoadingIndicator()),
         error: (error, _) =>
             Center(child: Text('Could not load countdowns: $error', style: TextStyle(color: palette.text))),
       ),

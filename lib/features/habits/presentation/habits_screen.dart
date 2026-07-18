@@ -11,6 +11,7 @@ import '../domain/habit_metrics.dart';
 import '../domain/habit_section.dart';
 import 'habit_form_sheet.dart';
 import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
+import 'package:ephemeron/core/widgets/app_loading_indicator.dart';
 
 class HabitsScreen extends ConsumerWidget {
   const HabitsScreen({super.key});
@@ -74,7 +75,7 @@ class HabitsScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: palette.primary)),
+        loading: () => const Center(child: AppLoadingIndicator()),
         error: (error, _) => Center(child: Text('Could not load habits: $error', style: TextStyle(color: palette.text))),
       ),
     );

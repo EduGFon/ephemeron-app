@@ -10,6 +10,7 @@ import '../../tasks/presentation/task_form_sheet.dart';
 import '../application/matrix_providers.dart';
 import '../domain/matrix_quadrant.dart';
 import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
+import 'package:ephemeron/core/widgets/app_loading_indicator.dart';
 
 class MatrixScreen extends ConsumerWidget {
   const MatrixScreen({super.key});
@@ -65,7 +66,7 @@ class MatrixScreen extends ConsumerWidget {
         ],
       ),
       body: !isLoaded
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoadingIndicator())
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(

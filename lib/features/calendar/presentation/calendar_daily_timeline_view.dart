@@ -35,6 +35,7 @@ class CalendarDailyTimelineView extends ConsumerStatefulWidget {
 class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelineView> {
   String? _draggingEventId;
   double _dragCurrentTop = 0.0;
+  double _dragOriginalTop = 0.0;
   DateTime? _dragCurrentStart;
   DateTime? _dragCurrentEnd;
   late final ScrollController _scrollController;
@@ -417,29 +418,30 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
       height: height - 2,
       child: GestureDetector(
         onTap: () => _onEventTapped(context, ref, event),
-        onVerticalDragStart: (details) {
+        onLongPressStart: (details) {
           final sLocal = event.start.toLocal();
           final duration = event.end.difference(event.start);
           setState(() {
             _draggingEventId = event.id;
-            _dragCurrentTop = _getTopOffset(sLocal);
+            _dragOriginalTop = _getTopOffset(sLocal);
+            _dragCurrentTop = _dragOriginalTop;
             _dragCurrentStart = sLocal;
             _dragCurrentEnd = sLocal.add(duration);
           });
         },
-        onVerticalDragUpdate: (details) {
+        onLongPressMoveUpdate: (details) {
           if (_draggingEventId == event.id) {
             final duration = event.end.difference(event.start);
             setState(() {
-              _dragCurrentTop += details.primaryDelta ?? 0.0;
               final hourHeight = ref.read(calendarHourHeightProvider);
+              _dragCurrentTop = _dragOriginalTop + details.localOffsetFromOrigin.dy;
               _dragCurrentTop = _dragCurrentTop.clamp(0.0, 24.0 * hourHeight);
               _dragCurrentStart = _getDateTimeFromTop(_dragCurrentTop, event.start.toLocal());
               _dragCurrentEnd = _dragCurrentStart!.add(duration);
             });
           }
         },
-        onVerticalDragEnd: (details) async {
+        onLongPressEnd: (details) async {
           if (_draggingEventId == event.id) {
             final newStart = _dragCurrentStart!;
             final newEnd = _dragCurrentEnd!;
