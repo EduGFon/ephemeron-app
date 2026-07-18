@@ -34,45 +34,41 @@ class SettingsScreen extends ConsumerWidget {
               final currentPalette = ref.watch(themeEngineProvider);
               return Column(
                 children: [
-                  ListTile(
-                    title: const Text('Primary Color'),
-                    subtitle: Row(
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: currentPalette.primary,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('#${currentPalette.primary.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}'),
-                      ],
-                    ),
-                    trailing: const Icon(Icons.color_lens, size: 20),
-                    onTap: () => _editThemeColor(context, ref, 'Primary', currentPalette.primary),
+                  const SizedBox(height: 8),
+                  _ColorPickerRow(
+                    title: 'Primary Color',
+                    currentColor: currentPalette.primary,
+                    options: const {
+                      'Purple (Default)': Color(0xFF6C63FF),
+                      'Pink': Colors.pink,
+                      'Blue': Colors.blue,
+                      'Cyan': Colors.cyan,
+                      'Green': Colors.green,
+                      'Yellow': Colors.yellow,
+                      'Orange': Colors.orange,
+                      'Red': Colors.red,
+                      'Brown': Colors.brown,
+                      'Monochromatic': Colors.grey,
+                    },
+                    onColorSelected: (c) => ref.read(themeEngineProvider.notifier).setPrimaryColor(c),
+                    onCustomSelected: () => _editThemeColor(context, ref, 'Primary', currentPalette.primary),
                   ),
-                  ListTile(
-                    title: const Text('Background Color'),
-                    subtitle: Row(
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: currentPalette.background,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.grey, width: 0.5),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('#${currentPalette.background.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}'),
-                      ],
-                    ),
-                    trailing: const Icon(Icons.color_lens, size: 20),
-                    onTap: () => _editThemeColor(context, ref, 'Background', currentPalette.background),
+                  const SizedBox(height: 16),
+                  _ColorPickerRow(
+                    title: 'Background Color',
+                    currentColor: currentPalette.background,
+                    options: const {
+                      'Obsidian (Default)': Color(0xFF121212),
+                      'Black': Colors.black,
+                      'Soft Dark': Color(0xFF1E1E1E),
+                      'Soft Blue Dark': Color(0xFF171923),
+                      'White': Colors.white,
+                      'Off-White': Color(0xFFF7FAFC),
+                    },
+                    onColorSelected: (c) => ref.read(themeEngineProvider.notifier).setBackgroundColor(c),
+                    onCustomSelected: () => _editThemeColor(context, ref, 'Background', currentPalette.background),
                   ),
+                  const SizedBox(height: 8),
                 ],
               );
             },
@@ -219,7 +215,7 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
-        title: Text('Edit $type Color', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text('Custom $type Color', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
           style: const TextStyle(fontSize: 14),
@@ -756,3 +752,93 @@ class _SyncSettingsTile extends ConsumerWidget {
   }
 }
 
+class _ColorPickerRow extends StatelessWidget {
+  const _ColorPickerRow({
+    required this.title,
+    required this.currentColor,
+    required this.options,
+    required this.onColorSelected,
+    required this.onCustomSelected,
+  });
+
+  final String title;
+  final Color currentColor;
+  final Map<String, Color> options;
+  final ValueChanged<Color> onColorSelected;
+  final VoidCallback onCustomSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCustom = !options.values.any((c) => c.toARGB32() == currentColor.toARGB32());
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (final entry in options.entries)
+                InkWell(
+                  onTap: () => onColorSelected(entry.value),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Tooltip(
+                    message: entry.key,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: entry.value,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: currentColor.toARGB32() == entry.value.toARGB32()
+                              ? Theme.of(context).colorScheme.onSurface
+                              : Colors.grey.withValues(alpha: 0.5),
+                          width: currentColor.toARGB32() == entry.value.toARGB32() ? 2 : 1,
+                        ),
+                      ),
+                      child: currentColor.toARGB32() == entry.value.toARGB32()
+                          ? Icon(Icons.check,
+                              color: entry.value.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+                          : null,
+                    ),
+                  ),
+                ),
+              InkWell(
+                onTap: onCustomSelected,
+                borderRadius: BorderRadius.circular(20),
+                child: Tooltip(
+                  message: 'Custom Hex',
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isCustom ? currentColor : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isCustom
+                            ? Theme.of(context).colorScheme.onSurface
+                            : Colors.grey.withValues(alpha: 0.5),
+                        width: isCustom ? 2 : 1,
+                      ),
+                    ),
+                    child: isCustom
+                        ? Icon(Icons.check,
+                            color: currentColor.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+                        : Icon(Icons.palette_outlined, color: Theme.of(context).colorScheme.onSurface),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
