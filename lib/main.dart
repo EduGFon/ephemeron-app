@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import 'core/routing/app_router.dart';
 import 'core/settings/app_settings_provider.dart';
@@ -20,7 +21,8 @@ import 'features/tasks/application/task_providers.dart';
 import 'features/notes/application/notes_providers.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   sharedPrefs = await SharedPreferences.getInstance();
   runApp(const ProviderScope(child: EphemeronApp()));
 }
@@ -73,7 +75,11 @@ class EphemeronApp extends ConsumerWidget {
       themeMode: ThemeMode.light, // We control the palette directly now
       theme: AppTheme.build(palette, reducedMotion: isReducedMotion),
       routerConfig: router,
-      builder: (context, child) => child ?? const SizedBox.shrink(),
+      builder: (context, child) {
+        // Remove splash screen now that we have our first frame ready
+        FlutterNativeSplash.remove();
+        return child ?? const SizedBox.shrink();
+      },
     );
   }
 }
