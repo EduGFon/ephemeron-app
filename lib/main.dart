@@ -15,6 +15,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'features/countdown/application/countdown_providers.dart';
 import 'features/habits/application/habit_providers.dart';
 import 'features/sync/application/sync_service.dart';
+import 'features/calendar/application/calendar_providers.dart';
+import 'features/tasks/application/task_providers.dart';
+import 'features/notes/application/notes_providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +53,16 @@ class EphemeronApp extends ConsumerWidget {
     ref.watch(googleAuthInitProvider);
     // Initialize sync service (kick off background periodic timer based on settings)
     ref.watch(syncServiceProvider);
+
+    // Pre-warm primary providers so tabs load instantly on first click
+    final now = DateTime.now();
+    ref.read(monthEventsProvider(DateTime(now.year, now.month, 1)));
+    ref.read(listsProvider);
+    ref.read(allActiveTasksProvider);
+    ref.read(habitsProvider);
+    ref.read(countdownsProvider);
+    ref.read(notesStreamProvider);
+    ref.read(foldersStreamProvider);
 
     final palette = ref.watch(themeEngineProvider);
     final isReducedMotion = settings.shouldReduceMotion;
