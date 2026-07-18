@@ -50,10 +50,29 @@ class CalendarScreen extends ConsumerStatefulWidget {
 }
 
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
+  static const _initialPage = 10000;
+  late final PageController _monthPageController;
+  late final PageController _multiDayPageController;
+  late final PageController _dailyPageController;
+  late final DateTime _anchorDate;
+
   @override
   void initState() {
     super.initState();
     _requestCalendarPermission();
+    final now = DateTime.now();
+    _anchorDate = DateTime(now.year, now.month, now.day);
+    _monthPageController = PageController(initialPage: _initialPage);
+    _multiDayPageController = PageController(initialPage: _initialPage);
+    _dailyPageController = PageController(initialPage: _initialPage);
+  }
+
+  @override
+  void dispose() {
+    _monthPageController.dispose();
+    _multiDayPageController.dispose();
+    _dailyPageController.dispose();
+    super.dispose();
   }
 
   Future<void> _requestCalendarPermission() async {
@@ -73,8 +92,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final selectedDay = ref.watch(selectedDayProvider);
     final calendarFormat = ref.watch(calendarFormatProvider);
     final settings = ref.watch(appSettingsProvider);
-    final monthEventsAsync = ref.watch(monthEventsProvider(focusedMonth));
     final calendarView = ref.watch(calendarViewProvider);
+    final monthEventsAsync = ref.watch(monthEventsProvider(focusedMonth));
 
     final syncState = ref.watch(syncServiceProvider);
     final account = ref.watch(googleAccountProvider).value;
@@ -86,6 +105,28 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       titleColor = Colors.grey;
     } else {
       titleColor = palette.primary;
+    }
+
+    // Sync month PageController if changed externally
+    final monthDiff = (focusedMonth.year - _anchorDate.year) * 12 + (focusedMonth.month - _anchorDate.month);
+    final targetMonthPage = _initialPage + monthDiff;
+    if (_monthPageController.hasClients && _monthPageController.page?.round() != targetMonthPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_monthPageController.hasClients && _monthPageController.page?.round() != targetMonthPage) {
+          _monthPageController.jumpToPage(targetMonthPage);
+        }
+      });
+    }
+
+    // Sync daily PageController if changed externally
+    final dayDiff = selectedDay.difference(_anchorDate).inDays;
+    final targetDailyPage = _initialPage + dayDiff;
+    if (_dailyPageController.hasClients && _dailyPageController.page?.round() != targetDailyPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_dailyPageController.hasClients && _dailyPageController.page?.round() != targetDailyPage) {
+          _dailyPageController.jumpToPage(targetDailyPage);
+        }
+      });
     }
 
     return CallbackShortcuts(
@@ -168,7 +209,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             tooltip: 'Settings',
             icon: Icon(Icons.settings_outlined, color: palette.primary),
             onPressed: () {
-              // Will navigate to Calendar settings / sync settings in Phase 4
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               );
@@ -219,80 +259,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 ),
                 // Grid view taking full height
                 Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onHorizontalDragEnd: (details) {
-                      if (details.primaryVelocity != null) {
-                        if (details.primaryVelocity! < -200) {
-                          // Swipe left -> Next Month
-                          ref.read(focusedMonthProvider.notifier).setMonth(
-                            DateTime(focusedMonth.year, focusedMonth.month + 1, 1),
-                          );
-                        } else if (details.primaryVelocity! > 200) {
-                          // Swipe right -> Previous Month
-                          ref.read(focusedMonthProvider.notifier).setMonth(
-                            DateTime(focusedMonth.year, focusedMonth.month - 1, 1),
-                          );
-                        }
-                      }
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: palette.surface.withValues(alpha: palette.isAmoled ? 1.0 : 0.5),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: palette.text.withValues(alpha: 0.1), width: 1),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: GlassmorphicWrapper(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: monthEventsAsync.when(
-                            data: (events) => CalendarMonthGridView(
-                              focusedMonth: focusedMonth,
-                              selectedDay: selectedDay,
-                              events: events,
-                              startDayOfWeek: settings.calendarStartDay,
-                            ),
-                            loading: () => const Center(child: AppLoadingIndicator()),
-                            error: (err, _) => Center(child: Text('Error loading events: $err')),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : calendarView == CalendarView.weekTimeline ||
-                  calendarView == CalendarView.fourDaysTimeline ||
-                  calendarView == CalendarView.threeDaysTimeline
-              ? GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onHorizontalDragEnd: (details) {
-                    if (details.primaryVelocity != null) {
-                      final daysCount = calendarView == CalendarView.weekTimeline
-                          ? 7
-                          : calendarView == CalendarView.fourDaysTimeline
-                              ? 4
-                              : 3;
-                      if (details.primaryVelocity! < -200) {
-                        // Swipe left -> Next period
-                        final newDay = selectedDay.add(Duration(days: daysCount));
-                        ref.read(selectedDayProvider.notifier).setDay(newDay);
-                        if (newDay.month != focusedMonth.month || newDay.year != focusedMonth.year) {
-                          ref.read(focusedMonthProvider.notifier).setMonth(DateTime(newDay.year, newDay.month, 1));
-                        }
-                      } else if (details.primaryVelocity! > 200) {
-                        // Swipe right -> Previous period
-                        final newDay = selectedDay.subtract(Duration(days: daysCount));
-                        ref.read(selectedDayProvider.notifier).setDay(newDay);
-                        if (newDay.month != focusedMonth.month || newDay.year != focusedMonth.year) {
-                          ref.read(focusedMonthProvider.notifier).setMonth(DateTime(newDay.year, newDay.month, 1));
-                        }
-                      }
-                    }
-                  },
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
@@ -304,81 +270,130 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       borderRadius: BorderRadius.circular(24),
                       child: GlassmorphicWrapper(
                         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: monthEventsAsync.hasValue
-                            ? CalendarMultiDayTimelineView(
-                                selectedDay: selectedDay,
-                                events: monthEventsAsync.value!,
-                                daysCount: calendarView == CalendarView.weekTimeline
-                                    ? 7
-                                    : calendarView == CalendarView.fourDaysTimeline
-                                        ? 4
-                                        : 3,
-                                startDayOfWeek: settings.calendarStartDay,
-                              )
-                            : monthEventsAsync.when(
-                                data: (events) => CalendarMultiDayTimelineView(
+                        child: PageView.builder(
+                          controller: _monthPageController,
+                          onPageChanged: (index) {
+                            final diff = index - _initialPage;
+                            final targetMonth = DateTime(_anchorDate.year, _anchorDate.month + diff, 1);
+                            if (targetMonth != ref.read(focusedMonthProvider)) {
+                              ref.read(focusedMonthProvider.notifier).setMonth(targetMonth);
+                            }
+                          },
+                          itemBuilder: (context, index) {
+                            final diff = index - _initialPage;
+                            final targetMonth = DateTime(_anchorDate.year, _anchorDate.month + diff, 1);
+                            return Consumer(
+                              builder: (context, ref, _) {
+                                final monthAsync = ref.watch(monthEventsProvider(targetMonth));
+                                final events = monthAsync.value ?? [];
+                                return CalendarMonthGridView(
+                                  focusedMonth: targetMonth,
                                   selectedDay: selectedDay,
                                   events: events,
-                                  daysCount: calendarView == CalendarView.weekTimeline
-                                      ? 7
-                                      : calendarView == CalendarView.fourDaysTimeline
-                                          ? 4
-                                          : 3,
                                   startDayOfWeek: settings.calendarStartDay,
-                                ),
-                                loading: () => const Center(child: AppLoadingIndicator()),
-                                error: (err, _) => Center(child: Text('Error loading events: $err')),
-                              ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : calendarView == CalendarView.weekTimeline ||
+                  calendarView == CalendarView.fourDaysTimeline ||
+                  calendarView == CalendarView.threeDaysTimeline
+              ? Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: palette.surface.withValues(alpha: palette.isAmoled ? 1.0 : 0.5),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: palette.text.withValues(alpha: 0.1), width: 1),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: GlassmorphicWrapper(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: PageView.builder(
+                        controller: _multiDayPageController,
+                        onPageChanged: (index) {
+                          final daysCount = calendarView == CalendarView.weekTimeline
+                              ? 7
+                              : calendarView == CalendarView.fourDaysTimeline
+                                  ? 4
+                                  : 3;
+                          final dayDiff = (index - _initialPage) * daysCount;
+                          final targetDay = _anchorDate.add(Duration(days: dayDiff));
+                          ref.read(selectedDayProvider.notifier).setDay(targetDay);
+                          if (targetDay.month != focusedMonth.month || targetDay.year != focusedMonth.year) {
+                            ref.read(focusedMonthProvider.notifier).setMonth(DateTime(targetDay.year, targetDay.month, 1));
+                          }
+                        },
+                        itemBuilder: (context, index) {
+                          final daysCount = calendarView == CalendarView.weekTimeline
+                              ? 7
+                              : calendarView == CalendarView.fourDaysTimeline
+                                  ? 4
+                                  : 3;
+                          final dayDiff = (index - _initialPage) * daysCount;
+                          final targetDay = _anchorDate.add(Duration(days: dayDiff));
+                          final targetMonth = DateTime(targetDay.year, targetDay.month, 1);
+                          return Consumer(
+                            builder: (context, ref, _) {
+                              final monthAsync = ref.watch(monthEventsProvider(targetMonth));
+                              final events = monthAsync.value ?? [];
+                              return CalendarMultiDayTimelineView(
+                                selectedDay: targetDay,
+                                events: events,
+                                daysCount: daysCount,
+                                startDayOfWeek: settings.calendarStartDay,
+                              );
+                            },
+                          );
+                        },
                       ),
                     ),
                   ),
                 )
               : calendarView == CalendarView.dailyTimeline
-                  ? GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onHorizontalDragEnd: (details) {
-                        if (details.primaryVelocity != null) {
-                          if (details.primaryVelocity! < -200) {
-                            // Swipe left -> Next day
-                            final newDay = selectedDay.add(const Duration(days: 1));
-                            ref.read(selectedDayProvider.notifier).setDay(newDay);
-                            if (newDay.month != focusedMonth.month || newDay.year != focusedMonth.year) {
-                              ref.read(focusedMonthProvider.notifier).setMonth(DateTime(newDay.year, newDay.month, 1));
-                            }
-                          } else if (details.primaryVelocity! > 200) {
-                            // Swipe right -> Previous day
-                            final newDay = selectedDay.subtract(const Duration(days: 1));
-                            ref.read(selectedDayProvider.notifier).setDay(newDay);
-                            if (newDay.month != focusedMonth.month || newDay.year != focusedMonth.year) {
-                              ref.read(focusedMonthProvider.notifier).setMonth(DateTime(newDay.year, newDay.month, 1));
-                            }
-                          }
-                        }
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: palette.surface.withValues(alpha: palette.isAmoled ? 1.0 : 0.5),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: palette.text.withValues(alpha: 0.1), width: 1),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: GlassmorphicWrapper(
-                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                            child: monthEventsAsync.hasValue
-                                ? CalendarDailyTimelineView(
-                                    selectedDay: selectedDay,
-                                    events: monthEventsAsync.value!,
-                                  )
-                                : monthEventsAsync.when(
-                                    data: (events) => CalendarDailyTimelineView(
-                                      selectedDay: selectedDay,
-                                      events: events,
-                                    ),
-                                    loading: () => const Center(child: AppLoadingIndicator()),
-                                    error: (err, _) => Center(child: Text('Error loading events: $err')),
-                                  ),
+                  ? Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: palette.surface.withValues(alpha: palette.isAmoled ? 1.0 : 0.5),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: palette.text.withValues(alpha: 0.1), width: 1),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: GlassmorphicWrapper(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: PageView.builder(
+                            controller: _dailyPageController,
+                            onPageChanged: (index) {
+                              final dayDiff = index - _initialPage;
+                              final targetDay = _anchorDate.add(Duration(days: dayDiff));
+                              ref.read(selectedDayProvider.notifier).setDay(targetDay);
+                              if (targetDay.month != focusedMonth.month || targetDay.year != focusedMonth.year) {
+                                ref.read(focusedMonthProvider.notifier).setMonth(DateTime(targetDay.year, targetDay.month, 1));
+                              }
+                            },
+                            itemBuilder: (context, index) {
+                              final dayDiff = index - _initialPage;
+                              final targetDay = _anchorDate.add(Duration(days: dayDiff));
+                              final targetMonth = DateTime(targetDay.year, targetDay.month, 1);
+                              return Consumer(
+                                builder: (context, ref, _) {
+                                  final monthAsync = ref.watch(monthEventsProvider(targetMonth));
+                                  final events = monthAsync.value ?? [];
+                                  return CalendarDailyTimelineView(
+                                    selectedDay: targetDay,
+                                    events: events,
+                                  );
+                                },
+                              );
+                            },
                           ),
                         ),
                       ),
