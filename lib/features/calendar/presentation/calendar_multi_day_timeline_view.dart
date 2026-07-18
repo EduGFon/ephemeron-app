@@ -49,7 +49,6 @@ class CalendarMultiDayTimelineView extends ConsumerStatefulWidget {
 
 class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayTimelineView> {
   String? _draggingEventId;
-  double _dragCurrentTop = 0.0;
   double _dragOriginalTop = 0.0;
   DateTime? _dragCurrentStart;
   DateTime? _dragCurrentEnd;
@@ -517,7 +516,7 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
     final startLocal = _draggingEventId == event.id ? _dragCurrentStart! : event.start.toLocal();
     final endLocal = _draggingEventId == event.id ? _dragCurrentEnd! : event.end.toLocal();
 
-    final double top = _draggingEventId == event.id ? _dragCurrentTop : _getTopOffset(startLocal);
+    final double top = _getTopOffset(startLocal);
     final double height = _getHeight(startLocal, endLocal);
     final Color eventColor = _getEventColor(event.colorId, palette);
 
@@ -531,10 +530,10 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
         onLongPressStart: (details) {
           final sLocal = event.start.toLocal();
           final duration = event.end.difference(event.start);
+          HapticFeedback.selectionClick();
           setState(() {
             _draggingEventId = event.id;
             _dragOriginalTop = _getTopOffset(sLocal);
-            _dragCurrentTop = _dragOriginalTop;
             _dragCurrentStart = sLocal;
             _dragCurrentEnd = sLocal.add(duration);
           });
@@ -542,13 +541,16 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
         onLongPressMoveUpdate: (details) {
           if (_draggingEventId == event.id) {
             final duration = event.end.difference(event.start);
-            setState(() {
-              final hourHeight = ref.read(calendarHourHeightProvider);
-              _dragCurrentTop = _dragOriginalTop + details.localOffsetFromOrigin.dy;
-              _dragCurrentTop = _dragCurrentTop.clamp(0.0, 24.0 * hourHeight);
-              _dragCurrentStart = _getDateTimeFromTop(_dragCurrentTop, event.start.toLocal());
-              _dragCurrentEnd = _dragCurrentStart!.add(duration);
-            });
+            final hourHeight = ref.read(calendarHourHeightProvider);
+            final newTop = (_dragOriginalTop + details.localOffsetFromOrigin.dy).clamp(0.0, 24.0 * hourHeight);
+            final newStart = _getDateTimeFromTop(newTop, event.start.toLocal());
+            if (_dragCurrentStart != newStart) {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _dragCurrentStart = newStart;
+                _dragCurrentEnd = newStart.add(duration);
+              });
+            }
           }
         },
         onLongPressEnd: (details) async {

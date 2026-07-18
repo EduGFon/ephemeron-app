@@ -34,7 +34,6 @@ class CalendarDailyTimelineView extends ConsumerStatefulWidget {
 
 class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelineView> {
   String? _draggingEventId;
-  double _dragCurrentTop = 0.0;
   double _dragOriginalTop = 0.0;
   DateTime? _dragCurrentStart;
   DateTime? _dragCurrentEnd;
@@ -438,7 +437,6 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
           setState(() {
             _draggingEventId = event.id;
             _dragOriginalTop = _getTopOffset(sLocal);
-            _dragCurrentTop = _dragOriginalTop;
             _dragCurrentStart = sLocal;
             _dragCurrentEnd = sLocal.add(duration);
           });
@@ -452,12 +450,9 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
             if (_dragCurrentStart != newStart) {
               HapticFeedback.selectionClick();
               setState(() {
-                _dragCurrentTop = newTop;
                 _dragCurrentStart = newStart;
                 _dragCurrentEnd = newStart.add(duration);
               });
-            } else {
-              _dragCurrentTop = newTop;
             }
           }
         },
