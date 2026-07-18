@@ -43,10 +43,39 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   @override
   void initState() {
     super.initState();
-    final initialHeight = ref.read(calendarHourHeightProvider);
+    final hourHeight = ref.read(calendarHourHeightProvider);
     _scrollController = ScrollController(
-      initialScrollOffset: initialHeight * 7,
+      initialScrollOffset: _calculateInitialScrollOffset(widget.selectedDay, hourHeight),
     );
+  }
+
+  @override
+  void didUpdateWidget(CalendarDailyTimelineView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedDay != widget.selectedDay) {
+      final hourHeight = ref.read(calendarHourHeightProvider);
+      final offset = _calculateInitialScrollOffset(widget.selectedDay, hourHeight);
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+  }
+
+  double _calculateInitialScrollOffset(DateTime selectedDay, double hourHeight) {
+    final now = DateTime.now();
+    final isToday = selectedDay.year == now.year &&
+        selectedDay.month == now.month &&
+        selectedDay.day == now.day;
+
+    if (isToday) {
+      final redLineOffset = (now.hour + now.minute / 60.0) * hourHeight;
+      return (redLineOffset - hourHeight * 1.5).clamp(0.0, 24.0 * hourHeight);
+    }
+    return hourHeight * 7.0;
   }
 
   @override

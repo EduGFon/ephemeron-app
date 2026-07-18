@@ -52,10 +52,58 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
   @override
   void initState() {
     super.initState();
-    final initialHeight = ref.read(calendarHourHeightProvider);
-    _scrollController = ScrollController(
-      initialScrollOffset: initialHeight * 7,
+    final hourHeight = ref.read(calendarHourHeightProvider);
+    final initialOffset = _calculateInitialScrollOffset(
+      widget.selectedDay,
+      widget.daysCount,
+      widget.startDayOfWeek,
+      hourHeight,
     );
+    _scrollController = ScrollController(
+      initialScrollOffset: initialOffset,
+    );
+  }
+
+  @override
+  void didUpdateWidget(CalendarMultiDayTimelineView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedDay != widget.selectedDay ||
+        oldWidget.daysCount != widget.daysCount ||
+        oldWidget.startDayOfWeek != widget.startDayOfWeek) {
+      final hourHeight = ref.read(calendarHourHeightProvider);
+      final offset = _calculateInitialScrollOffset(
+        widget.selectedDay,
+        widget.daysCount,
+        widget.startDayOfWeek,
+        hourHeight,
+      );
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+  }
+
+  double _calculateInitialScrollOffset(
+    DateTime baseDay,
+    int daysCount,
+    int startDayOfWeek,
+    double hourHeight,
+  ) {
+    final visibleDays = _calculateVisibleDays(baseDay, daysCount, startDayOfWeek);
+    final now = DateTime.now();
+    final containsToday = visibleDays.any(
+      (d) => d.year == now.year && d.month == now.month && d.day == now.day,
+    );
+
+    if (containsToday) {
+      final redLineOffset = (now.hour + now.minute / 60.0) * hourHeight;
+      return (redLineOffset - hourHeight * 1.5).clamp(0.0, 24.0 * hourHeight);
+    }
+    return hourHeight * 7.0;
   }
 
   @override
