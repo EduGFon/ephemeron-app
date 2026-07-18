@@ -95,6 +95,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  assets:
+    - assets/
+
   # Bundled locally on purpose (not the google_fonts package): that
   # package fetches font files over the network on first use, which
   # works against the "lightweight, low battery, works offline" goal.
