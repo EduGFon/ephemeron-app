@@ -37,7 +37,7 @@ class MatrixScreen extends ConsumerWidget {
               ),
             ),
             child: PopupMenuButton<TaskSortOption>(
-              icon: Icon(Icons.menu, color: palette.text),
+              icon: Icon(Icons.more_vert, color: palette.text),
               tooltip: 'Sorting options',
               onSelected: (option) {
                 ref.read(taskSortOptionProvider.notifier).setSortOption(option);
