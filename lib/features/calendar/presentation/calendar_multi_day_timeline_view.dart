@@ -151,8 +151,7 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
                   IconButton(
                     icon: Icon(Icons.chevron_left, color: palette.text),
                     onPressed: () {
-                      final shiftDays = widget.daysCount == 7 ? 7 : widget.daysCount;
-                      final prevDay = widget.selectedDay.subtract(Duration(days: shiftDays));
+                      final prevDay = widget.selectedDay.subtract(const Duration(days: 1));
                       ref.read(selectedDayProvider.notifier).setDay(prevDay);
                       ref.read(focusedMonthProvider.notifier).setMonth(DateTime(
                             prevDay.year,
@@ -164,8 +163,7 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
                   IconButton(
                     icon: Icon(Icons.chevron_right, color: palette.text),
                     onPressed: () {
-                      final shiftDays = widget.daysCount == 7 ? 7 : widget.daysCount;
-                      final nextDay = widget.selectedDay.add(Duration(days: shiftDays));
+                      final nextDay = widget.selectedDay.add(const Duration(days: 1));
                       ref.read(selectedDayProvider.notifier).setDay(nextDay);
                       ref.read(focusedMonthProvider.notifier).setMonth(DateTime(
                             nextDay.year,
@@ -342,44 +340,60 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
                 // Layered day columns for timed events
                 Positioned.fill(
                   left: CalendarMultiDayTimelineView.timeColumnWidth,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final totalWidth = constraints.maxWidth;
-                      final dayColumnWidth = totalWidth / visibleDays.length;
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragEnd: (details) {
+                      if (_draggingEventId == null && details.primaryVelocity != null) {
+                        if (details.primaryVelocity! < -200) {
+                          final nextDay = widget.selectedDay.add(const Duration(days: 1));
+                          ref.read(selectedDayProvider.notifier).setDay(nextDay);
+                          ref.read(focusedMonthProvider.notifier).setMonth(DateTime(nextDay.year, nextDay.month, 1));
+                        } else if (details.primaryVelocity! > 200) {
+                          final prevDay = widget.selectedDay.subtract(const Duration(days: 1));
+                          ref.read(selectedDayProvider.notifier).setDay(prevDay);
+                          ref.read(focusedMonthProvider.notifier).setMonth(DateTime(prevDay.year, prevDay.month, 1));
+                        }
+                      }
+                    },
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final totalWidth = constraints.maxWidth;
+                        final dayColumnWidth = totalWidth / visibleDays.length;
 
-                      final draggingDayIndex = _draggingEventId == null || _dragOriginalStart == null
-                          ? -1
-                          : visibleDays.indexWhere((d) =>
-                              d.year == _dragOriginalStart!.year &&
-                              d.month == _dragOriginalStart!.month &&
-                              d.day == _dragOriginalStart!.day);
+                        final draggingDayIndex = _draggingEventId == null || _dragOriginalStart == null
+                            ? -1
+                            : visibleDays.indexWhere((d) =>
+                                d.year == _dragOriginalStart!.year &&
+                                d.month == _dragOriginalStart!.month &&
+                                d.day == _dragOriginalStart!.day);
 
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          // Non-dragging day columns first
-                          for (int i = 0; i < visibleDays.length; i++)
-                            if (i != draggingDayIndex)
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            // Non-dragging day columns first
+                            for (int i = 0; i < visibleDays.length; i++)
+                              if (i != draggingDayIndex)
+                                Positioned(
+                                  left: i * dayColumnWidth,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: dayColumnWidth,
+                                  child: _buildDayColumn(context, ref, visibleDays[i], dayColumnWidth, palette),
+                                ),
+
+                            // Dragging day column LAST (highest Z-index so it floats above all adjacent columns)
+                            if (draggingDayIndex != -1 && draggingDayIndex < visibleDays.length)
                               Positioned(
-                                left: i * dayColumnWidth,
+                                left: draggingDayIndex * dayColumnWidth,
                                 top: 0,
                                 bottom: 0,
                                 width: dayColumnWidth,
-                                child: _buildDayColumn(context, ref, visibleDays[i], dayColumnWidth, palette),
+                                child: _buildDayColumn(context, ref, visibleDays[draggingDayIndex], dayColumnWidth, palette),
                               ),
-
-                          // Dragging day column LAST (highest Z-index so it floats above all adjacent columns)
-                          if (draggingDayIndex != -1 && draggingDayIndex < visibleDays.length)
-                            Positioned(
-                              left: draggingDayIndex * dayColumnWidth,
-                              top: 0,
-                              bottom: 0,
-                              width: dayColumnWidth,
-                              child: _buildDayColumn(context, ref, visibleDays[draggingDayIndex], dayColumnWidth, palette),
-                            ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],

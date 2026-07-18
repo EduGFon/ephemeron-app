@@ -270,31 +270,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       borderRadius: BorderRadius.circular(24),
                       child: GlassmorphicWrapper(
                         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: PageView.builder(
-                          controller: _monthPageController,
-                          onPageChanged: (index) {
-                            final diff = index - _initialPage;
-                            final targetMonth = DateTime(_anchorDate.year, _anchorDate.month + diff, 1);
-                            if (targetMonth != ref.read(focusedMonthProvider)) {
-                              ref.read(focusedMonthProvider.notifier).setMonth(targetMonth);
-                            }
-                          },
-                          itemBuilder: (context, index) {
-                            final diff = index - _initialPage;
-                            final targetMonth = DateTime(_anchorDate.year, _anchorDate.month + diff, 1);
-                            return Consumer(
-                              builder: (context, ref, _) {
-                                final monthAsync = ref.watch(monthEventsProvider(targetMonth));
-                                final events = monthAsync.value ?? [];
-                                return CalendarMonthGridView(
-                                  focusedMonth: targetMonth,
-                                  selectedDay: selectedDay,
-                                  events: events,
-                                  startDayOfWeek: settings.calendarStartDay,
-                                );
-                              },
-                            );
-                          },
+                        child: monthEventsAsync.when(
+                          data: (events) => CalendarMonthGridView(
+                            focusedMonth: focusedMonth,
+                            selectedDay: selectedDay,
+                            events: events,
+                            startDayOfWeek: settings.calendarStartDay,
+                          ),
+                          loading: () => const Center(child: AppLoadingIndicator()),
+                          error: (err, _) => Center(child: Text('Error loading events: $err')),
                         ),
                       ),
                     ),
@@ -316,44 +300,31 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     borderRadius: BorderRadius.circular(24),
                     child: GlassmorphicWrapper(
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: PageView.builder(
-                        controller: _multiDayPageController,
-                        onPageChanged: (index) {
-                          final daysCount = calendarView == CalendarView.weekTimeline
-                              ? 7
-                              : calendarView == CalendarView.fourDaysTimeline
-                                  ? 4
-                                  : 3;
-                          final dayDiff = (index - _initialPage) * daysCount;
-                          final targetDay = _anchorDate.add(Duration(days: dayDiff));
-                          ref.read(selectedDayProvider.notifier).setDay(targetDay);
-                          if (targetDay.month != focusedMonth.month || targetDay.year != focusedMonth.year) {
-                            ref.read(focusedMonthProvider.notifier).setMonth(DateTime(targetDay.year, targetDay.month, 1));
-                          }
-                        },
-                        itemBuilder: (context, index) {
-                          final daysCount = calendarView == CalendarView.weekTimeline
-                              ? 7
-                              : calendarView == CalendarView.fourDaysTimeline
-                                  ? 4
-                                  : 3;
-                          final dayDiff = (index - _initialPage) * daysCount;
-                          final targetDay = _anchorDate.add(Duration(days: dayDiff));
-                          final targetMonth = DateTime(targetDay.year, targetDay.month, 1);
-                          return Consumer(
-                            builder: (context, ref, _) {
-                              final monthAsync = ref.watch(monthEventsProvider(targetMonth));
-                              final events = monthAsync.value ?? [];
-                              return CalendarMultiDayTimelineView(
-                                selectedDay: targetDay,
+                      child: monthEventsAsync.hasValue
+                          ? CalendarMultiDayTimelineView(
+                              selectedDay: selectedDay,
+                              events: monthEventsAsync.value!,
+                              daysCount: calendarView == CalendarView.weekTimeline
+                                  ? 7
+                                  : calendarView == CalendarView.fourDaysTimeline
+                                      ? 4
+                                      : 3,
+                              startDayOfWeek: settings.calendarStartDay,
+                            )
+                          : monthEventsAsync.when(
+                              data: (events) => CalendarMultiDayTimelineView(
+                                selectedDay: selectedDay,
                                 events: events,
-                                daysCount: daysCount,
+                                daysCount: calendarView == CalendarView.weekTimeline
+                                    ? 7
+                                    : calendarView == CalendarView.fourDaysTimeline
+                                        ? 4
+                                        : 3,
                                 startDayOfWeek: settings.calendarStartDay,
-                              );
-                            },
-                          );
-                        },
-                      ),
+                              ),
+                              loading: () => const Center(child: AppLoadingIndicator()),
+                              error: (err, _) => Center(child: Text('Error loading events: $err')),
+                            ),
                     ),
                   ),
                 )
@@ -369,32 +340,19 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         borderRadius: BorderRadius.circular(24),
                         child: GlassmorphicWrapper(
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: PageView.builder(
-                            controller: _dailyPageController,
-                            onPageChanged: (index) {
-                              final dayDiff = index - _initialPage;
-                              final targetDay = _anchorDate.add(Duration(days: dayDiff));
-                              ref.read(selectedDayProvider.notifier).setDay(targetDay);
-                              if (targetDay.month != focusedMonth.month || targetDay.year != focusedMonth.year) {
-                                ref.read(focusedMonthProvider.notifier).setMonth(DateTime(targetDay.year, targetDay.month, 1));
-                              }
-                            },
-                            itemBuilder: (context, index) {
-                              final dayDiff = index - _initialPage;
-                              final targetDay = _anchorDate.add(Duration(days: dayDiff));
-                              final targetMonth = DateTime(targetDay.year, targetDay.month, 1);
-                              return Consumer(
-                                builder: (context, ref, _) {
-                                  final monthAsync = ref.watch(monthEventsProvider(targetMonth));
-                                  final events = monthAsync.value ?? [];
-                                  return CalendarDailyTimelineView(
-                                    selectedDay: targetDay,
+                          child: monthEventsAsync.hasValue
+                              ? CalendarDailyTimelineView(
+                                  selectedDay: selectedDay,
+                                  events: monthEventsAsync.value!,
+                                )
+                              : monthEventsAsync.when(
+                                  data: (events) => CalendarDailyTimelineView(
+                                    selectedDay: selectedDay,
                                     events: events,
-                                  );
-                                },
-                              );
-                            },
-                          ),
+                                  ),
+                                  loading: () => const Center(child: AppLoadingIndicator()),
+                                  error: (err, _) => Center(child: Text('Error loading events: $err')),
+                                ),
                         ),
                       ),
                     )
