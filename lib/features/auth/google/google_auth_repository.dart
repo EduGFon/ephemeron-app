@@ -16,6 +16,19 @@ class GoogleAuthAccount {
   final String email;
   final String? displayName;
   final String? photoUrl;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GoogleAuthAccount &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          email == other.email &&
+          displayName == other.displayName &&
+          photoUrl == other.photoUrl;
+
+  @override
+  int get hashCode => Object.hash(id, email, displayName, photoUrl);
 }
 
 /// Thrown when the user cancels a sign-in or authorization prompt — a

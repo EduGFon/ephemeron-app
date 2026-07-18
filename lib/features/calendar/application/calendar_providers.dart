@@ -60,7 +60,16 @@ final calendarEventOverridesProvider =
 /// months actually hit the same cache entry instead of refetching.
 final monthEventsProvider =
     FutureProvider.family<List<CalendarEvent>, DateTime>((ref, month) async {
-  ref.watch(googleAccountProvider); // Invalidate and reload when login state changes
+  // Invalidate and reload only when the underlying account ID changes.
+  // This prevents the calendar from reloading on startup when the stream transitions
+  // from AsyncLoading to AsyncData but the account ID is identical to the one
+  // we synchronously restored from SharedPreferences.
+  ref.watch(googleAccountProvider.select((v) {
+    if (v.isLoading && !v.hasValue) {
+      return ref.read(googleAuthRepositoryProvider).currentAccount?.id;
+    }
+    return v.value?.id;
+  }));
   final overrides = ref.watch(calendarEventOverridesProvider);
   final repo = ref.watch(calendarRepositoryProvider);
   final start = DateTime(month.year, month.month, 1);

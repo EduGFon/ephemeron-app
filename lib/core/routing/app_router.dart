@@ -58,9 +58,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Still initializing — stay on splash.
       if (initAsync.isLoading) return location == '/splash' ? null : '/splash';
 
-      // Init done: read the now-settled account state.
-      final accountValue = ref.read(googleAccountProvider);
-      final isSignedIn = accountValue.hasValue && accountValue.value != null;
+      // Init done: read the now-settled account state directly from the repo.
+      // This prevents a single-frame redirect to /auth while the StreamProvider
+      // yields its first asynchronous value.
+      final repo = ref.read(googleAuthRepositoryProvider);
+      final isSignedIn = repo.currentAccount != null;
 
       // Splash always redirects once init is done.
       if (location == '/splash') return isSignedIn ? _lastScreen() : '/auth';

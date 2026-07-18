@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/utils/dev_logger.dart';
@@ -45,6 +46,24 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
   Future<void> initialize() async {
     if (_initialized) return;
 
+    // Restore persisted account identity from SharedPreferences immediately
+    // so currentAccount is available at startup without waiting for network.
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getString('google.accountId');
+    final savedEmail = prefs.getString('google.accountEmail');
+    final savedName = prefs.getString('google.accountName');
+    final savedPhoto = prefs.getString('google.accountPhoto');
+
+    if (savedId != null && savedEmail != null) {
+      _currentAccount = GoogleAuthAccount(
+        id: savedId,
+        email: savedEmail,
+        displayName: savedName,
+        photoUrl: savedPhoto,
+      );
+      _accountController.add(_currentAccount);
+    }
+
     if (!_gsiInitialized) {
       DevLogger.log('Initializing GoogleSignIn (kIsWeb: $kIsWeb)');
       try {
@@ -76,27 +95,53 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
 
     _initialized = true;
 
-    // Awaited so that initialize() only resolves AFTER we know whether a
-    // previous session exists. This lets the splash-screen redirect see the
-    // correct account state immediately rather than racing with the event.
-    // Any failure here is non-fatal — the user just lands on /auth.
-    try {
-      await _instance.attemptLightweightAuthentication();
-    } catch (_) {
-      // Lightweight auth failed or timed out — no session to restore.
-    }
+    // The previous session from SharedPreferences has already been restored above.
+    // We intentionally skip attemptLightweightAuthentication() here to avoid triggering
+    // the native Google Credential Manager UI (which can show a bottom sheet or toast)
+    // every time the app opens. It will be called silently inside getAccessToken()
+    // only when an API call is actually made.
   }
 
   void _handleAuthEvent(GoogleSignInAuthenticationEvent event) {
     switch (event) {
       case GoogleSignInAuthenticationEventSignIn():
         _signedInAccount = event.user;
-        _currentAccount = _toAppAccount(event.user);
-        _accountController.add(_currentAccount);
-      default:
+        final newAccount = _toAppAccount(event.user);
+        if (_currentAccount != newAccount) {
+          _currentAccount = newAccount;
+          _persistAccount(_currentAccount);
+          _accountController.add(_currentAccount);
+        }
+      case GoogleSignInAuthenticationEventSignOut():
+        // The native SDK emits SignOut on startup if attemptLightweightAuthentication
+        // doesn't yield an active credential. We only clear the SDK account reference.
+        // We do NOT clear our persisted _currentAccount here, otherwise app restart wipes the session.
+        // Explicit user sign out is handled by the signOut() method.
         _signedInAccount = null;
-        _currentAccount = null;
-        _accountController.add(null);
+        break;
+    }
+  }
+
+  Future<void> _persistAccount(GoogleAuthAccount? account) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (account != null) {
+      await prefs.setString('google.accountId', account.id);
+      await prefs.setString('google.accountEmail', account.email);
+      if (account.displayName != null) {
+        await prefs.setString('google.accountName', account.displayName!);
+      } else {
+        await prefs.remove('google.accountName');
+      }
+      if (account.photoUrl != null) {
+        await prefs.setString('google.accountPhoto', account.photoUrl!);
+      } else {
+        await prefs.remove('google.accountPhoto');
+      }
+    } else {
+      await prefs.remove('google.accountId');
+      await prefs.remove('google.accountEmail');
+      await prefs.remove('google.accountName');
+      await prefs.remove('google.accountPhoto');
     }
   }
 
@@ -131,16 +176,31 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
   @override
   Future<void> signOut() async {
     _ensureInitialized();
-    await _instance.signOut();
+    try {
+      await _instance.signOut();
+    } catch (_) {}
     _signedInAccount = null;
     _currentAccount = null;
+    await _persistAccount(null);
     _accountController.add(null);
   }
 
   @override
   Future<String> getAccessToken(List<String> scopes) async {
     _ensureInitialized();
-    final signedInAccount = _signedInAccount;
+    var signedInAccount = _signedInAccount;
+    if (signedInAccount == null) {
+      try {
+        await _instance.attemptLightweightAuthentication();
+        signedInAccount = _signedInAccount;
+      } catch (_) {}
+    }
+    if (signedInAccount == null) {
+      try {
+        await _instance.authenticate();
+        signedInAccount = _signedInAccount;
+      } catch (_) {}
+    }
     if (signedInAccount == null) {
       DevLogger.logError('getAccessToken failed: No account signed in');
       throw const GoogleAuthException('No Google account signed in yet.');
