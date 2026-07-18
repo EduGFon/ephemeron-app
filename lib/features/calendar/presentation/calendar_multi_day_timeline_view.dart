@@ -53,6 +53,7 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
   double _dragOriginalTop = 0.0;
   DateTime? _dragCurrentStart;
   DateTime? _dragCurrentEnd;
+  final Map<String, ({DateTime start, DateTime end})> _pendingMovedEvents = {};
   late final ScrollController _scrollController;
   double _baseHourHeight = 80.0;
 
@@ -435,7 +436,19 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
     DateTime day,
     AppPalette palette,
   ) {
-    final allDayList = widget.events.where((e) {
+    final mappedEvents = widget.events.map((e) {
+      final pending = _pendingMovedEvents[e.id];
+      if (pending != null) {
+        if (e.start.isAtSameMomentAs(pending.start) && e.end.isAtSameMomentAs(pending.end)) {
+          _pendingMovedEvents.remove(e.id);
+          return e;
+        }
+        return e.copyWith(start: pending.start, end: pending.end);
+      }
+      return e;
+    });
+
+    final allDayList = mappedEvents.where((e) {
       if (!e.isAllDay) return false;
       final targetDay = DateTime(day.year, day.month, day.day);
       final sLocal = e.start.toLocal();
@@ -472,7 +485,19 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
   }
 
   List<CalendarEvent> _getTimedEventsForDay(DateTime day) {
-    return widget.events.where((e) {
+    final mappedEvents = widget.events.map((e) {
+      final pending = _pendingMovedEvents[e.id];
+      if (pending != null) {
+        if (e.start.isAtSameMomentAs(pending.start) && e.end.isAtSameMomentAs(pending.end)) {
+          _pendingMovedEvents.remove(e.id);
+          return e;
+        }
+        return e.copyWith(start: pending.start, end: pending.end);
+      }
+      return e;
+    });
+
+    return mappedEvents.where((e) {
       if (e.isAllDay) return false;
       final targetDay = DateTime(day.year, day.month, day.day);
       final sLocal = e.start.toLocal();
@@ -532,6 +557,8 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
             final newEnd = _dragCurrentEnd!;
             final oldDraggingId = _draggingEventId!;
 
+            _pendingMovedEvents[oldDraggingId] = (start: newStart, end: newEnd);
+
             setState(() {
               _draggingEventId = null;
               _dragCurrentStart = null;
@@ -577,7 +604,9 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
                 ref.invalidate(monthEventsProvider(DateTime(nLocal.year, nLocal.month, 1)));
               }
             } catch (e) {
+              _pendingMovedEvents.remove(oldDraggingId);
               if (mounted) {
+                setState(() {});
                 if (originalEvent != null) {
                   await calendarRepo.cacheEvents([originalEvent]);
                   final sLocal = originalEvent.start.toLocal();

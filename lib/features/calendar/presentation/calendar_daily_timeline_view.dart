@@ -38,6 +38,7 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   double _dragOriginalTop = 0.0;
   DateTime? _dragCurrentStart;
   DateTime? _dragCurrentEnd;
+  final Map<String, ({DateTime start, DateTime end})> _pendingMovedEvents = {};
   late final ScrollController _scrollController;
   double _baseHourHeight = 80.0;
 
@@ -101,7 +102,17 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
     final hourHeight = ref.watch(calendarHourHeightProvider);
 
     // Filter events for the selected day
-    final dayEvents = widget.events.where((e) {
+    final dayEvents = widget.events.map((e) {
+      final pending = _pendingMovedEvents[e.id];
+      if (pending != null) {
+        if (e.start.isAtSameMomentAs(pending.start) && e.end.isAtSameMomentAs(pending.end)) {
+          _pendingMovedEvents.remove(e.id);
+          return e;
+        }
+        return e.copyWith(start: pending.start, end: pending.end);
+      }
+      return e;
+    }).where((e) {
       final targetDay = DateTime(widget.selectedDay.year, widget.selectedDay.month, widget.selectedDay.day);
       final sLocal = e.start.toLocal();
       final eLocal = e.end.toLocal();
@@ -449,6 +460,8 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
             final newEnd = _dragCurrentEnd!;
             final oldDraggingId = _draggingEventId!;
 
+            _pendingMovedEvents[oldDraggingId] = (start: newStart, end: newEnd);
+
             setState(() {
               _draggingEventId = null;
               _dragCurrentStart = null;
@@ -494,7 +507,9 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
                 ref.invalidate(monthEventsProvider(DateTime(nLocal.year, nLocal.month, 1)));
               }
             } catch (e) {
+              _pendingMovedEvents.remove(oldDraggingId);
               if (mounted) {
+                setState(() {});
                 if (originalEvent != null) {
                   await calendarRepo.cacheEvents([originalEvent]);
                   final sLocal = originalEvent.start.toLocal();
