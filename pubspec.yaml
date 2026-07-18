@@ -90,6 +90,8 @@ dev_dependencies:
   build_runner: ^2.4.11
   drift_dev: ^2.30.0
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
 flutter:
   uses-material-design: true
@@ -112,3 +114,23 @@ flutter:
           weight: 500
         - asset: assets/fonts/Inter-SemiBold.ttf
           weight: 600
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/app_icon.png"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  color_dark: "#121212"
+  image: "assets/app_icon.png"
+  android_12:
+    image: "assets/app_icon.png"
+    color: "#FFFFFF"
+    color_dark: "#121212"
+
+dependency_overrides:
+  flutter_timezone:
+    path: packages/flutter_timezone
+  wakelock_plus:
+    path: packages/wakelock_plus
