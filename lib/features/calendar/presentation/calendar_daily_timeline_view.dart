@@ -416,7 +416,7 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
     final endLocal = _draggingEventId == event.id ? _dragCurrentEnd! : event.end.toLocal();
 
     // Calculate vertical offset and height
-    final double top = _draggingEventId == event.id ? _dragCurrentTop : _getTopOffset(startLocal);
+    final double top = _getTopOffset(startLocal);
     final double height = _getHeight(startLocal, endLocal);
     final Color eventColor = _getEventColor(event.colorId, palette);
 
@@ -434,6 +434,7 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
         onLongPressStart: (details) {
           final sLocal = event.start.toLocal();
           final duration = event.end.difference(event.start);
+          HapticFeedback.selectionClick();
           setState(() {
             _draggingEventId = event.id;
             _dragOriginalTop = _getTopOffset(sLocal);
@@ -445,13 +446,19 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
         onLongPressMoveUpdate: (details) {
           if (_draggingEventId == event.id) {
             final duration = event.end.difference(event.start);
-            setState(() {
-              final hourHeight = ref.read(calendarHourHeightProvider);
-              _dragCurrentTop = _dragOriginalTop + details.localOffsetFromOrigin.dy;
-              _dragCurrentTop = _dragCurrentTop.clamp(0.0, 24.0 * hourHeight);
-              _dragCurrentStart = _getDateTimeFromTop(_dragCurrentTop, event.start.toLocal());
-              _dragCurrentEnd = _dragCurrentStart!.add(duration);
-            });
+            final hourHeight = ref.read(calendarHourHeightProvider);
+            final newTop = (_dragOriginalTop + details.localOffsetFromOrigin.dy).clamp(0.0, 24.0 * hourHeight);
+            final newStart = _getDateTimeFromTop(newTop, event.start.toLocal());
+            if (_dragCurrentStart != newStart) {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _dragCurrentTop = newTop;
+                _dragCurrentStart = newStart;
+                _dragCurrentEnd = newStart.add(duration);
+              });
+            } else {
+              _dragCurrentTop = newTop;
+            }
           }
         },
         onLongPressEnd: (details) async {
@@ -491,20 +498,10 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
                 );
 
                 await calendarRepo.cacheEvents([updated]);
-                final sLocal = originalEvent.start.toLocal();
-                final nLocal = newStart.toLocal();
-                final oldMonth = DateTime(sLocal.year, sLocal.month, 1);
-                final newMonth = DateTime(nLocal.year, nLocal.month, 1);
-                ref.invalidate(monthEventsProvider(oldMonth));
-                if (oldMonth != newMonth) {
-                  ref.invalidate(monthEventsProvider(newMonth));
-                }
+                ref.read(calendarEventOverridesProvider.notifier).updateEvent(updated);
 
-                await calendarRepo.updateEvent(updated);
-              }
-              if (mounted) {
-                final nLocal = newStart.toLocal();
-                ref.invalidate(monthEventsProvider(DateTime(nLocal.year, nLocal.month, 1)));
+                final result = await calendarRepo.updateEvent(updated);
+                ref.read(calendarEventOverridesProvider.notifier).updateEvent(result);
               }
             } catch (e) {
               _pendingMovedEvents.remove(oldDraggingId);
@@ -512,14 +509,9 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
                 setState(() {});
                 if (originalEvent != null) {
                   await calendarRepo.cacheEvents([originalEvent]);
-                  final sLocal = originalEvent.start.toLocal();
-                  final nLocal = newStart.toLocal();
-                  final oldMonth = DateTime(sLocal.year, sLocal.month, 1);
-                  final newMonth = DateTime(nLocal.year, nLocal.month, 1);
-                  ref.invalidate(monthEventsProvider(oldMonth));
-                  if (oldMonth != newMonth) {
-                    ref.invalidate(monthEventsProvider(newMonth));
-                  }
+                  ref.read(calendarEventOverridesProvider.notifier).updateEvent(originalEvent);
+                } else {
+                  ref.read(calendarEventOverridesProvider.notifier).removeOverride(oldDraggingId);
                 }
                 final msg = e is CalendarPermissionDeniedException
                     ? 'Cannot move event: Calendar is read-only or permission is denied (403).'

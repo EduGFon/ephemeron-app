@@ -79,31 +79,35 @@ class CalendarRepository {
   }
 
   Future<void> cacheEvents(List<CalendarEvent> events, {String? calendarId}) async {
-    for (final e in events) {
-      final calId = calendarId ?? e.calendarId;
-      await _db.into(_db.cachedCalendarEvents).insert(
-        CachedCalendarEventsCompanion.insert(
-          id: e.id,
-          calendarId: calId,
-          title: e.title,
-          description: Value(e.description),
-          location: Value(e.location),
-          start: e.start,
-          end: e.end,
-          isAllDay: Value(e.isAllDay),
-          colorId: Value(e.colorId),
-          reminderMinutes: Value(jsonEncode(e.reminderMinutes)),
-          attendees: Value(jsonEncode(e.attendees)),
-          hasVideoConference: Value(e.hasVideoConference),
-          videoConferenceLink: Value(e.videoConferenceLink),
-          selfResponseStatus: Value(e.selfResponseStatus.name),
-          recurrence: Value(e.recurrence != null ? jsonEncode(e.recurrence) : null),
-          recurringEventId: Value(e.recurringEventId),
-          originalStartTime: Value(e.originalStartTime),
-        ),
-        mode: InsertMode.insertOrReplace,
-      );
-    }
+    if (events.isEmpty) return;
+    await _db.batch((batch) {
+      for (final e in events) {
+        final calId = calendarId ?? e.calendarId;
+        batch.insert(
+          _db.cachedCalendarEvents,
+          CachedCalendarEventsCompanion.insert(
+            id: e.id,
+            calendarId: calId,
+            title: e.title,
+            description: Value(e.description),
+            location: Value(e.location),
+            start: e.start,
+            end: e.end,
+            isAllDay: Value(e.isAllDay),
+            colorId: Value(e.colorId),
+            reminderMinutes: Value(jsonEncode(e.reminderMinutes)),
+            attendees: Value(jsonEncode(e.attendees)),
+            hasVideoConference: Value(e.hasVideoConference),
+            videoConferenceLink: Value(e.videoConferenceLink),
+            selfResponseStatus: Value(e.selfResponseStatus.name),
+            recurrence: Value(e.recurrence != null ? jsonEncode(e.recurrence) : null),
+            recurringEventId: Value(e.recurringEventId),
+            originalStartTime: Value(e.originalStartTime),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+    });
   }
 
   Future<void> _cacheEvents(List<CalendarEvent> events, {String? calendarId}) =>
@@ -368,19 +372,13 @@ class CalendarRepository {
     final result = CalendarEvent.fromGoogle(updated, calendarId: event.calendarId);
 
     final isRecurring = result.recurrence != null && result.recurrence!.isNotEmpty;
-    if (!isRecurring) {
-      await _cacheEvents([result]);
-      await _scheduleEventAlarms([result]);
+    await cacheEvents([result]);
+    unawaited(_scheduleEventAlarms([result]));
 
-      if (result.attendees.isNotEmpty) {
-        final start = DateTime(result.start.year, result.start.month - 1, 1);
-        final end = DateTime(result.start.year, result.start.month + 3, 1);
-        unawaited(refreshEventsFromRemote(rangeStart: start, rangeEnd: end));
-      }
-    } else {
+    if (isRecurring || result.attendees.isNotEmpty) {
       final start = DateTime(result.start.year, result.start.month - 1, 1);
       final end = DateTime(result.start.year, result.start.month + 3, 1);
-      await refreshEventsFromRemote(rangeStart: start, rangeEnd: end);
+      unawaited(refreshEventsFromRemote(rangeStart: start, rangeEnd: end));
     }
     return result;
   }

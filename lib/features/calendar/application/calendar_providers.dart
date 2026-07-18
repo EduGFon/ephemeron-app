@@ -33,9 +33,35 @@ final calendarRepositoryProvider = Provider<CalendarRepository>((ref) {
 /// Keyed by the first-of-month, normalized to midnight — always compute
 /// the key this way (see `_normalizeMonth` in CalendarScreen) so equal
 /// months actually hit the same cache entry instead of refetching.
+class CalendarEventOverridesNotifier extends Notifier<Map<String, CalendarEvent>> {
+  @override
+  Map<String, CalendarEvent> build() => const {};
+
+  void updateEvent(CalendarEvent event) {
+    state = {...state, event.id: event};
+  }
+
+  void removeOverride(String eventId) {
+    if (state.containsKey(eventId)) {
+      final newState = Map<String, CalendarEvent>.from(state);
+      newState.remove(eventId);
+      state = newState;
+    }
+  }
+}
+
+final calendarEventOverridesProvider =
+    NotifierProvider<CalendarEventOverridesNotifier, Map<String, CalendarEvent>>(
+  CalendarEventOverridesNotifier.new,
+);
+
+/// Keyed by the first-of-month, normalized to midnight — always compute
+/// the key this way (see `_normalizeMonth` in CalendarScreen) so equal
+/// months actually hit the same cache entry instead of refetching.
 final monthEventsProvider =
     FutureProvider.family<List<CalendarEvent>, DateTime>((ref, month) async {
   ref.watch(googleAccountProvider); // Invalidate and reload when login state changes
+  final overrides = ref.watch(calendarEventOverridesProvider);
   final repo = ref.watch(calendarRepositoryProvider);
   final start = DateTime(month.year, month.month, 1);
   final end = DateTime(month.year, month.month + 1, 1);
@@ -120,7 +146,8 @@ final monthEventsProvider =
     }
   }
 
-  return [...events, ...taskEvents, ...habitEvents];
+  final allEvents = [...events, ...taskEvents, ...habitEvents];
+  return allEvents.map((e) => overrides[e.id] ?? e).toList();
 });
 
 /// Derives a single day's events from whatever month is currently

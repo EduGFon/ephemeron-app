@@ -588,20 +588,10 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
                 );
 
                 await calendarRepo.cacheEvents([updated]);
-                final sLocal = originalEvent.start.toLocal();
-                final nLocal = newStart.toLocal();
-                final oldMonth = DateTime(sLocal.year, sLocal.month, 1);
-                final newMonth = DateTime(nLocal.year, nLocal.month, 1);
-                ref.invalidate(monthEventsProvider(oldMonth));
-                if (oldMonth != newMonth) {
-                  ref.invalidate(monthEventsProvider(newMonth));
-                }
+                ref.read(calendarEventOverridesProvider.notifier).updateEvent(updated);
 
-                await calendarRepo.updateEvent(updated);
-              }
-              if (mounted) {
-                final nLocal = newStart.toLocal();
-                ref.invalidate(monthEventsProvider(DateTime(nLocal.year, nLocal.month, 1)));
+                final result = await calendarRepo.updateEvent(updated);
+                ref.read(calendarEventOverridesProvider.notifier).updateEvent(result);
               }
             } catch (e) {
               _pendingMovedEvents.remove(oldDraggingId);
@@ -609,14 +599,9 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
                 setState(() {});
                 if (originalEvent != null) {
                   await calendarRepo.cacheEvents([originalEvent]);
-                  final sLocal = originalEvent.start.toLocal();
-                  final nLocal = newStart.toLocal();
-                  final oldMonth = DateTime(sLocal.year, sLocal.month, 1);
-                  final newMonth = DateTime(nLocal.year, nLocal.month, 1);
-                  ref.invalidate(monthEventsProvider(oldMonth));
-                  if (oldMonth != newMonth) {
-                    ref.invalidate(monthEventsProvider(newMonth));
-                  }
+                  ref.read(calendarEventOverridesProvider.notifier).updateEvent(originalEvent);
+                } else {
+                  ref.read(calendarEventOverridesProvider.notifier).removeOverride(oldDraggingId);
                 }
                 final msg = e is CalendarPermissionDeniedException
                     ? e.message
