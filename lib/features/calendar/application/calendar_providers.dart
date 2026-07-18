@@ -240,3 +240,23 @@ class CalendarViewNotifier extends Notifier<CalendarView> {
 final calendarViewProvider = NotifierProvider<CalendarViewNotifier, CalendarView>(
   () => CalendarViewNotifier(),
 );
+
+class CalendarScrollOffsetNotifier extends Notifier<double?> {
+  static const _prefKey = 'calendar.scrollOffset';
+
+  @override
+  double? build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    return prefs.getDouble(_prefKey);
+  }
+
+  void setOffset(double offset) {
+    state = offset;
+    ref.read(sharedPreferencesProvider).setDouble(_prefKey, offset);
+  }
+}
+
+final calendarScrollOffsetProvider =
+    NotifierProvider<CalendarScrollOffsetNotifier, double?>(
+  CalendarScrollOffsetNotifier.new,
+);

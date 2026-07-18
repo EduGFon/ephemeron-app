@@ -51,10 +51,19 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
     final sDay = widget.selectedDay;
     _anchorDate = DateTime(sDay.year, sDay.month, sDay.day);
     _pageController = PageController(initialPage: _initialPage);
+    final savedOffset = ref.read(calendarScrollOffsetProvider);
     final hourHeight = ref.read(calendarHourHeightProvider);
+    final initialOffset = savedOffset ?? _calculateInitialScrollOffset(widget.selectedDay, hourHeight);
     _scrollController = ScrollController(
-      initialScrollOffset: _calculateInitialScrollOffset(widget.selectedDay, hourHeight),
+      initialScrollOffset: initialOffset,
     );
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients) {
+      ref.read(calendarScrollOffsetProvider.notifier).setOffset(_scrollController.offset);
+    }
   }
 
   @override

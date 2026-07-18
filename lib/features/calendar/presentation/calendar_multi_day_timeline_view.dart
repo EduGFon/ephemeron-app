@@ -71,16 +71,25 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
       initialPage: _initialPage,
       viewportFraction: 1.0 / widget.daysCount,
     );
+    final savedOffset = ref.read(calendarScrollOffsetProvider);
     final hourHeight = ref.read(calendarHourHeightProvider);
-    final initialOffset = _calculateInitialScrollOffset(
-      widget.selectedDay,
-      widget.daysCount,
-      widget.startDayOfWeek,
-      hourHeight,
-    );
+    final initialOffset = savedOffset ??
+        _calculateInitialScrollOffset(
+          widget.selectedDay,
+          widget.daysCount,
+          widget.startDayOfWeek,
+          hourHeight,
+        );
     _scrollController = ScrollController(
       initialScrollOffset: initialOffset,
     );
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients) {
+      ref.read(calendarScrollOffsetProvider.notifier).setOffset(_scrollController.offset);
+    }
   }
 
   @override
