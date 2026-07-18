@@ -34,6 +34,9 @@ class CalendarDailyTimelineView extends ConsumerStatefulWidget {
 }
 
 class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelineView> {
+  static const _initialPage = 10000;
+  late PageController _pageController;
+  late DateTime _anchorDate;
   String? _draggingEventId;
   double _dragOriginalTop = 0.0;
   DateTime? _dragCurrentStart;
@@ -45,6 +48,9 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   @override
   void initState() {
     super.initState();
+    final sDay = widget.selectedDay;
+    _anchorDate = DateTime(sDay.year, sDay.month, sDay.day);
+    _pageController = PageController(initialPage: _initialPage);
     final hourHeight = ref.read(calendarHourHeightProvider);
     _scrollController = ScrollController(
       initialScrollOffset: _calculateInitialScrollOffset(widget.selectedDay, hourHeight),
@@ -55,6 +61,11 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   void didUpdateWidget(CalendarDailyTimelineView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedDay != widget.selectedDay) {
+      final dayDiff = widget.selectedDay.difference(_anchorDate).inDays;
+      final targetPage = _initialPage + dayDiff;
+      if (_pageController.hasClients && _pageController.page?.round() != targetPage) {
+        _pageController.jumpToPage(targetPage);
+      }
       final hourHeight = ref.read(calendarHourHeightProvider);
       final offset = _calculateInitialScrollOffset(widget.selectedDay, hourHeight);
       if (_scrollController.hasClients) {
@@ -65,6 +76,13 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
         );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   double _calculateInitialScrollOffset(DateTime selectedDay, double hourHeight) {
@@ -78,12 +96,6 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
       return (redLineOffset - hourHeight * 1.5).clamp(0.0, 24.0 * hourHeight);
     }
     return hourHeight * 7.0;
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
   }
 
   DateTime _getDateTimeFromTop(double top, DateTime originalStart) {
@@ -126,7 +138,6 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
     }).toList();
 
     final allDayEvents = dayEvents.where((e) => e.isAllDay).toList();
-    final timedEvents = dayEvents.where((e) => !e.isAllDay).toList();
 
     final gmtOffset = _getGmtOffsetString(widget.selectedDay);
     final weekdayName = _getWeekdayName(widget.selectedDay.weekday);
@@ -348,23 +359,28 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
                 // Stacked events layered over the timeline
                 Positioned.fill(
                   left: CalendarDailyTimelineView.timeColumnWidth,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
-                      final positionedEvents = _layoutEvents(timedEvents);
-                      return Stack(
-                        children: [
-                          for (final pe in positionedEvents)
-                            _buildTimelineEventCard(
-                              context,
-                              ref,
-                              pe.event,
-                              pe.leftFraction * (width - 16) + 8,
-                              pe.widthFraction * (width - 16),
-                              palette,
-                            ),
-                        ],
-                      );
+                  child: PageView.builder(
+                    controller: _pageController,
+                    physics: _draggingEventId != null
+                        ? const NeverScrollableScrollPhysics()
+                        : const BouncingScrollPhysics(),
+                    onPageChanged: (index) {
+                      final dayDiff = index - _initialPage;
+                      final targetDay = _anchorDate.add(Duration(days: dayDiff));
+                      if (targetDay != widget.selectedDay) {
+                        ref.read(selectedDayProvider.notifier).setDay(targetDay);
+                        if (targetDay.month != ref.read(focusedMonthProvider).month ||
+                            targetDay.year != ref.read(focusedMonthProvider).year) {
+                          ref.read(focusedMonthProvider.notifier).setMonth(
+                            DateTime(targetDay.year, targetDay.month, 1),
+                          );
+                        }
+                      }
+                    },
+                    itemBuilder: (context, index) {
+                      final dayDiff = index - _initialPage;
+                      final currentDay = _anchorDate.add(Duration(days: dayDiff));
+                      return _buildDailyDayColumn(context, ref, currentDay, palette);
                     },
                   ),
                 ),
@@ -401,6 +417,54 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
   ),
 ),
       ],
+    );
+  }
+
+  Widget _buildDailyDayColumn(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime day,
+    AppPalette palette,
+  ) {
+    final mappedEvents = widget.events.map((e) {
+      final pending = _pendingMovedEvents[e.id];
+      if (pending != null) {
+        if (e.start.isAtSameMomentAs(pending.start) && e.end.isAtSameMomentAs(pending.end)) {
+          _pendingMovedEvents.remove(e.id);
+          return e;
+        }
+        return e.copyWith(start: pending.start, end: pending.end);
+      }
+      return e;
+    });
+
+    final dayEvents = mappedEvents.where((e) {
+      final targetDay = DateTime(day.year, day.month, day.day);
+      final sLocal = e.start.toLocal();
+      if (e.isAllDay) return false;
+      final eventDay = DateTime(sLocal.year, sLocal.month, sLocal.day);
+      return eventDay == targetDay;
+    }).toList();
+
+    final positionedEvents = _layoutEvents(dayEvents);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return Stack(
+          children: [
+            for (final pe in positionedEvents)
+              _buildTimelineEventCard(
+                context,
+                ref,
+                pe.event,
+                pe.leftFraction * (width - 16) + 8,
+                pe.widthFraction * (width - 16),
+                palette,
+              ),
+          ],
+        );
+      },
     );
   }
 

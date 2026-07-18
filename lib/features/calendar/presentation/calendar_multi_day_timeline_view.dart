@@ -49,6 +49,9 @@ class CalendarMultiDayTimelineView extends ConsumerStatefulWidget {
 }
 
 class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayTimelineView> {
+  static const _initialPage = 10000;
+  late PageController _pageController;
+  late DateTime _anchorDate;
   String? _draggingEventId;
   double _dragOriginalTop = 0.0;
   DateTime? _dragOriginalStart;
@@ -62,6 +65,12 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
   @override
   void initState() {
     super.initState();
+    final sDay = widget.selectedDay;
+    _anchorDate = DateTime(sDay.year, sDay.month, sDay.day);
+    _pageController = PageController(
+      initialPage: _initialPage,
+      viewportFraction: 1.0 / widget.daysCount,
+    );
     final hourHeight = ref.read(calendarHourHeightProvider);
     final initialOffset = _calculateInitialScrollOffset(
       widget.selectedDay,
@@ -77,6 +86,21 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
   @override
   void didUpdateWidget(CalendarMultiDayTimelineView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.daysCount != widget.daysCount) {
+      final sDay = widget.selectedDay;
+      _anchorDate = DateTime(sDay.year, sDay.month, sDay.day);
+      _pageController.dispose();
+      _pageController = PageController(
+        initialPage: _initialPage,
+        viewportFraction: 1.0 / widget.daysCount,
+      );
+    } else if (oldWidget.selectedDay != widget.selectedDay) {
+      final dayDiff = widget.selectedDay.difference(_anchorDate).inDays;
+      final targetPage = _initialPage + dayDiff;
+      if (_pageController.hasClients && _pageController.page?.round() != targetPage) {
+        _pageController.jumpToPage(targetPage);
+      }
+    }
     if (oldWidget.selectedDay != widget.selectedDay ||
         oldWidget.daysCount != widget.daysCount ||
         oldWidget.startDayOfWeek != widget.startDayOfWeek) {
@@ -97,6 +121,13 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
     }
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   double _calculateInitialScrollOffset(
     DateTime baseDay,
     int daysCount,
@@ -114,12 +145,6 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
       return (redLineOffset - hourHeight * 1.5).clamp(0.0, 24.0 * hourHeight);
     }
     return hourHeight * 7.0;
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
   }
 
   @override
@@ -340,60 +365,38 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
                 // Layered day columns for timed events
                 Positioned.fill(
                   left: CalendarMultiDayTimelineView.timeColumnWidth,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onHorizontalDragEnd: (details) {
-                      if (_draggingEventId == null && details.primaryVelocity != null) {
-                        if (details.primaryVelocity! < -200) {
-                          final nextDay = widget.selectedDay.add(const Duration(days: 1));
-                          ref.read(selectedDayProvider.notifier).setDay(nextDay);
-                          ref.read(focusedMonthProvider.notifier).setMonth(DateTime(nextDay.year, nextDay.month, 1));
-                        } else if (details.primaryVelocity! > 200) {
-                          final prevDay = widget.selectedDay.subtract(const Duration(days: 1));
-                          ref.read(selectedDayProvider.notifier).setDay(prevDay);
-                          ref.read(focusedMonthProvider.notifier).setMonth(DateTime(prevDay.year, prevDay.month, 1));
-                        }
-                      }
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final dayColumnWidth = constraints.maxWidth / widget.daysCount;
+                      return PageView.builder(
+                        controller: _pageController,
+                        padEnds: false,
+                        physics: _draggingEventId != null
+                            ? const NeverScrollableScrollPhysics()
+                            : const BouncingScrollPhysics(),
+                        onPageChanged: (index) {
+                          final dayDiff = index - _initialPage;
+                          final targetDay = _anchorDate.add(Duration(days: dayDiff));
+                          if (targetDay != widget.selectedDay) {
+                            ref.read(selectedDayProvider.notifier).setDay(targetDay);
+                            if (targetDay.month != ref.read(focusedMonthProvider).month ||
+                                targetDay.year != ref.read(focusedMonthProvider).year) {
+                              ref.read(focusedMonthProvider.notifier).setMonth(
+                                DateTime(targetDay.year, targetDay.month, 1),
+                              );
+                            }
+                          }
+                        },
+                        itemBuilder: (context, index) {
+                          final dayDiff = index - _initialPage;
+                          final currentDay = _anchorDate.add(Duration(days: dayDiff));
+                          return SizedBox(
+                            width: dayColumnWidth,
+                            child: _buildDayColumn(context, ref, currentDay, dayColumnWidth, palette),
+                          );
+                        },
+                      );
                     },
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final totalWidth = constraints.maxWidth;
-                        final dayColumnWidth = totalWidth / visibleDays.length;
-
-                        final draggingDayIndex = _draggingEventId == null || _dragOriginalStart == null
-                            ? -1
-                            : visibleDays.indexWhere((d) =>
-                                d.year == _dragOriginalStart!.year &&
-                                d.month == _dragOriginalStart!.month &&
-                                d.day == _dragOriginalStart!.day);
-
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            // Non-dragging day columns first
-                            for (int i = 0; i < visibleDays.length; i++)
-                              if (i != draggingDayIndex)
-                                Positioned(
-                                  left: i * dayColumnWidth,
-                                  top: 0,
-                                  bottom: 0,
-                                  width: dayColumnWidth,
-                                  child: _buildDayColumn(context, ref, visibleDays[i], dayColumnWidth, palette),
-                                ),
-
-                            // Dragging day column LAST (highest Z-index so it floats above all adjacent columns)
-                            if (draggingDayIndex != -1 && draggingDayIndex < visibleDays.length)
-                              Positioned(
-                                left: draggingDayIndex * dayColumnWidth,
-                                top: 0,
-                                bottom: 0,
-                                width: dayColumnWidth,
-                                child: _buildDayColumn(context, ref, visibleDays[draggingDayIndex], dayColumnWidth, palette),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
                   ),
                 ),
               ],
