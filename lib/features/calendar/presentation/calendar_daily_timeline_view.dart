@@ -6,6 +6,7 @@ import 'package:drift/drift.dart' show Value;
 
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
+import '../../../core/settings/app_settings_provider.dart';
 import '../application/calendar_providers.dart';
 import '../data/calendar_repository.dart';
 import '../domain/calendar_event.dart';
@@ -423,7 +424,15 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
     final paddingVertical = height < 50 ? 4.0 : 8.0;
     final paddingHorizontal = height < 50 ? 8.0 : 12.0;
 
-    return Positioned(
+    final isDragging = _draggingEventId == event.id;
+    final settings = ref.watch(appSettingsProvider);
+    final animateDuration = isDragging && !settings.shouldReduceMotion
+        ? const Duration(milliseconds: 120)
+        : Duration.zero;
+
+    return AnimatedPositioned(
+      duration: animateDuration,
+      curve: Curves.easeOutCubic,
       top: top + 1, // small offset to avoid overlaying the line
       left: left,
       width: width,
@@ -433,7 +442,9 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
         onLongPressStart: (details) {
           final sLocal = event.start.toLocal();
           final duration = event.end.difference(event.start);
-          HapticFeedback.selectionClick();
+          if (ref.read(appSettingsProvider).hapticsEnabled) {
+            HapticFeedback.selectionClick();
+          }
           setState(() {
             _draggingEventId = event.id;
             _dragOriginalTop = _getTopOffset(sLocal);
@@ -448,7 +459,9 @@ class _CalendarDailyTimelineViewState extends ConsumerState<CalendarDailyTimelin
             final newTop = (_dragOriginalTop + details.localOffsetFromOrigin.dy).clamp(0.0, 24.0 * hourHeight);
             final newStart = _getDateTimeFromTop(newTop, event.start.toLocal());
             if (_dragCurrentStart != newStart) {
-              HapticFeedback.selectionClick();
+              if (ref.read(appSettingsProvider).hapticsEnabled) {
+                HapticFeedback.selectionClick();
+              }
               setState(() {
                 _dragCurrentStart = newStart;
                 _dragCurrentEnd = newStart.add(duration);

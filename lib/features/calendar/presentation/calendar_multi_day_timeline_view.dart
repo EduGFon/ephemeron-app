@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/theme_engine_provider.dart';
 import '../../../core/theme/theme_palettes.dart';
+import '../../../core/settings/app_settings_provider.dart';
 import '../application/calendar_providers.dart';
 import '../domain/calendar_event.dart';
 import 'event_form_sheet.dart';
@@ -520,7 +521,15 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
     final double height = _getHeight(startLocal, endLocal);
     final Color eventColor = _getEventColor(event.colorId, palette);
 
-    return Positioned(
+    final isDragging = _draggingEventId == event.id;
+    final settings = ref.watch(appSettingsProvider);
+    final animateDuration = isDragging && !settings.shouldReduceMotion
+        ? const Duration(milliseconds: 120)
+        : Duration.zero;
+
+    return AnimatedPositioned(
+      duration: animateDuration,
+      curve: Curves.easeOutCubic,
       top: top + 1,
       left: left + 2,
       width: width - 4,
@@ -530,7 +539,9 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
         onLongPressStart: (details) {
           final sLocal = event.start.toLocal();
           final duration = event.end.difference(event.start);
-          HapticFeedback.selectionClick();
+          if (ref.read(appSettingsProvider).hapticsEnabled) {
+            HapticFeedback.selectionClick();
+          }
           setState(() {
             _draggingEventId = event.id;
             _dragOriginalTop = _getTopOffset(sLocal);
@@ -545,7 +556,9 @@ class _CalendarMultiDayTimelineViewState extends ConsumerState<CalendarMultiDayT
             final newTop = (_dragOriginalTop + details.localOffsetFromOrigin.dy).clamp(0.0, 24.0 * hourHeight);
             final newStart = _getDateTimeFromTop(newTop, event.start.toLocal());
             if (_dragCurrentStart != newStart) {
-              HapticFeedback.selectionClick();
+              if (ref.read(appSettingsProvider).hapticsEnabled) {
+                HapticFeedback.selectionClick();
+              }
               setState(() {
                 _dragCurrentStart = newStart;
                 _dragCurrentEnd = newStart.add(duration);

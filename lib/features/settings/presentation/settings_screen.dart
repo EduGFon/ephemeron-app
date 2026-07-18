@@ -103,6 +103,12 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: notifier.setGlassmorphismEnabled,
           ),
           SwitchListTile(
+            title: const Text('Tactile Haptic Feedback'),
+            subtitle: const Text('Vibrate when dragging events across timeline grid lines'),
+            value: settings.hapticsEnabled,
+            onChanged: notifier.setHapticsEnabled,
+          ),
+          SwitchListTile(
             title: const Text('Reduce animations'),
             subtitle: const Text('Turns off decorative page transitions'),
             value: settings.reducedMotion,

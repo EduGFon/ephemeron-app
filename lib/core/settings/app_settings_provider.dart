@@ -20,6 +20,7 @@ class AppSettings {
     this.alarmLongSoundPath = '/usr/share/sounds/ocean/stereo/phone-incoming-call.oga',
     this.alarmBackground = '#005F73', // Petrol default hex color
     this.glassmorphismEnabled = false,
+    this.hapticsEnabled = true,
   });
 
   final bool reducedMotion;
@@ -46,6 +47,7 @@ class AppSettings {
   final String alarmLongSoundPath;
   final String alarmBackground;
   final bool glassmorphismEnabled;
+  final bool hapticsEnabled;
 
   /// Effective "should we skip decorative animation" flag: the user's
   /// explicit toggle, their manual power-saving override, OR the OS
@@ -65,6 +67,7 @@ class AppSettings {
     String? alarmLongSoundPath,
     String? alarmBackground,
     bool? glassmorphismEnabled,
+    bool? hapticsEnabled,
   }) {
     return AppSettings(
       reducedMotion: reducedMotion ?? this.reducedMotion,
@@ -78,6 +81,7 @@ class AppSettings {
       alarmLongSoundPath: alarmLongSoundPath ?? this.alarmLongSoundPath,
       alarmBackground: alarmBackground ?? this.alarmBackground,
       glassmorphismEnabled: glassmorphismEnabled ?? this.glassmorphismEnabled,
+      hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     );
   }
 }
@@ -93,6 +97,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   static const _alarmLongSoundPathKey = 'settings.alarmLongSoundPath';
   static const _alarmBackgroundKey = 'settings.alarmBackground';
   static const _glassmorphismEnabledKey = 'settings.glassmorphismEnabled';
+  static const _hapticsEnabledKey = 'settings.hapticsEnabled';
   final _battery = Battery();
 
   @override
@@ -117,6 +122,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       alarmLongSoundPath: prefs.getString(_alarmLongSoundPathKey) ?? '/usr/share/sounds/ocean/stereo/phone-incoming-call.oga',
       alarmBackground: prefs.getString(_alarmBackgroundKey) ?? '#005F73',
       glassmorphismEnabled: prefs.getBool(_glassmorphismEnabledKey) ?? false,
+      hapticsEnabled: prefs.getBool(_hapticsEnabledKey) ?? true,
     );
   }
 
@@ -193,6 +199,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(glassmorphismEnabled: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_glassmorphismEnabledKey, value);
+  }
+
+  Future<void> setHapticsEnabled(bool value) async {
+    state = state.copyWith(hapticsEnabled: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hapticsEnabledKey, value);
   }
 }
 
