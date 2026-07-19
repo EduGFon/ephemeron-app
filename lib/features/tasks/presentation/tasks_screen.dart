@@ -540,73 +540,75 @@ class _TaskListView extends ConsumerWidget {
               );
             }
 
-            return ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              children: [
+            return CustomScrollView(
+              slivers: [
                 if (pendingTasks.isNotEmpty) ...[
                   // ── Drag and Drop Reorderable List ──
-                  ReorderableListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    buildDefaultDragHandles: false,
-                    itemCount: pendingTasks.length,
-                    onReorder: (oldIdx, newIdx) async { // ignore: deprecated_member_use
-                      if (oldIdx < newIdx) {
-                        newIdx -= 1;
-                      }
-                      final mutableList = List<Task>.from(pendingTasks);
-                      final item = mutableList.removeAt(oldIdx);
-                      mutableList.insert(newIdx, item);
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    sliver: SliverReorderableList(
+                      itemCount: pendingTasks.length,
+                      onReorder: (oldIdx, newIdx) async { // ignore: deprecated_member_use
+                        if (oldIdx < newIdx) {
+                          newIdx -= 1;
+                        }
+                        final mutableList = List<Task>.from(pendingTasks);
+                        final item = mutableList.removeAt(oldIdx);
+                        mutableList.insert(newIdx, item);
 
-                      // Update provider sort option to custom
-                      ref.read(taskSortOptionProvider.notifier).setSortOption(TaskSortOption.custom);
-                      
-                      // Save custom sort order in database
-                      final ids = mutableList.map((t) => t.id).toList();
-                      await ref.read(taskRepositoryProvider).updateTaskSortOrders(ids);
-                    },
-                    itemBuilder: (context, index) {
-                      final task = pendingTasks[index];
-                      return ReorderableDelayedDragStartListener(
-                        key: ValueKey(task.id),
-                        index: index,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: RepaintBoundary(child: _TaskTile(task: task, palette: palette)),
-                        ),
-                      );
-                    },
+                        // Update provider sort option to custom
+                        ref.read(taskSortOptionProvider.notifier).setSortOption(TaskSortOption.custom);
+                        
+                        // Save custom sort order in database
+                        final ids = mutableList.map((t) => t.id).toList();
+                        await ref.read(taskRepositoryProvider).updateTaskSortOrders(ids);
+                      },
+                      itemBuilder: (context, index) {
+                        final task = pendingTasks[index];
+                        return ReorderableDelayedDragStartListener(
+                          key: ValueKey(task.id),
+                          index: index,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: RepaintBoundary(child: _TaskTile(task: task, palette: palette)),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
                 if (completedTasks.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  // ── Expandable Completed Section ──
-                  Theme(
-                    data: Theme.of(context).copyWith(
-                      dividerColor: Colors.transparent,
-                      expansionTileTheme: ExpansionTileThemeData(
-                        textColor: palette.primary,
-                        iconColor: palette.primary,
-                        collapsedIconColor: palette.text.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    child: ExpansionTile(
-                      title: Text(
-                        'Completed (${completedTasks.length})',
-                        style: TextStyle(
-                          color: palette.text.withValues(alpha: 0.6),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    sliver: SliverToBoxAdapter(
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          dividerColor: Colors.transparent,
+                          expansionTileTheme: ExpansionTileThemeData(
+                            textColor: palette.primary,
+                            iconColor: palette.primary,
+                            collapsedIconColor: palette.text.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: ExpansionTile(
+                          title: Text(
+                            'Completed (${completedTasks.length})',
+                            style: TextStyle(
+                              color: palette.text.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          childrenPadding: EdgeInsets.zero,
+                          children: [
+                            for (final task in completedTasks)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: _TaskTile(task: task, palette: palette),
+                              ),
+                          ],
                         ),
                       ),
-                      childrenPadding: EdgeInsets.zero,
-                      children: [
-                        for (final task in completedTasks)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: _TaskTile(task: task, palette: palette),
-                          ),
-                      ],
                     ),
                   ),
                 ],

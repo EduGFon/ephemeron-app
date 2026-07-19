@@ -49,29 +49,36 @@ class HabitsScreen extends ConsumerWidget {
             bySection.putIfAbsent(habit.section, () => []).add(habit);
           }
           
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 120),
-            children: [
+          return CustomScrollView(
+            slivers: [
               for (final entry in bySection.entries) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                  child: Row(
-                    children: [
-                      Icon(HabitSection.resolve(entry.key).icon, size: 22, color: palette.primary),
-                      const SizedBox(width: 12),
-                      Text(
-                        HabitSection.resolve(entry.key).label,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: palette.text,
-                          fontWeight: FontWeight.w600,
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                    child: Row(
+                      children: [
+                        Icon(HabitSection.resolve(entry.key).icon, size: 22, color: palette.primary),
+                        const SizedBox(width: 12),
+                        Text(
+                          HabitSection.resolve(entry.key).label,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: palette.text,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-                for (final habit in entry.value) 
-                  RepaintBoundary(child: _HabitTile(habit: habit, palette: palette)),
+                SliverList.builder(
+                  itemCount: entry.value.length,
+                  itemBuilder: (context, index) {
+                    final habit = entry.value[index];
+                    return RepaintBoundary(child: _HabitTile(habit: habit, palette: palette));
+                  },
+                ),
               ],
+              const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
             ],
           );
         },

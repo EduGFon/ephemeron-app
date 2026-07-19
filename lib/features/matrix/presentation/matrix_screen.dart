@@ -185,14 +185,11 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
                             size: 48,
                           ),
                         )
-                      : ListView(
+                      : CustomScrollView(
                           physics: const BouncingScrollPhysics(),
-                          children: [
+                          slivers: [
                             if (pendingTasks.isNotEmpty)
-                              ReorderableListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                buildDefaultDragHandles: false,
+                              SliverReorderableList(
                                 itemCount: pendingTasks.length,
                                 onReorder: (oldIdx, newIdx) async { // ignore: deprecated_member_use
                                   if (oldIdx < newIdx) {
@@ -220,28 +217,29 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
                                 },
                               ),
                             if (completedTasks.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Theme(
-                                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                                child: ExpansionTile(
-                                  title: Text(
-                                    'Completed (${completedTasks.length})',
-                                    style: TextStyle(
-                                      color: widget.palette.text.withValues(alpha: 0.5),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  trailing: const SizedBox.shrink(),
-                                  tilePadding: EdgeInsets.zero,
-                                  childrenPadding: EdgeInsets.zero,
-                                  children: [
-                                    for (final task in completedTasks)
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 8.0),
-                                        child: _buildTaskRow(context, ref, task),
+                              SliverToBoxAdapter(
+                                child: Theme(
+                                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                  child: ExpansionTile(
+                                    title: Text(
+                                      'Completed (${completedTasks.length})',
+                                      style: TextStyle(
+                                        color: widget.palette.text.withValues(alpha: 0.5),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                  ],
+                                    ),
+                                    trailing: const SizedBox.shrink(),
+                                    tilePadding: EdgeInsets.zero,
+                                    childrenPadding: EdgeInsets.zero,
+                                    children: [
+                                      for (final task in completedTasks)
+                                        Padding(
+                                          padding: const EdgeInsets.only(bottom: 8.0),
+                                          child: _buildTaskRow(context, ref, task),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],

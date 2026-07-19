@@ -1,14 +1,13 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'google_auth_repository.dart';
 import 'google_sign_in_auth_repository.dart';
-import 'desktop_google_auth_repository.dart';
+import 'desktop_google_auth_repository_stub.dart' if (dart.library.io) 'desktop_google_auth_repository.dart';
 
 final googleAuthRepositoryProvider = Provider<GoogleAuthRepository>((ref) {
   final GoogleAuthRepository repo;
-  if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS)) {
     repo = DesktopGoogleAuthRepository();
   } else {
     repo = GoogleSignInAuthRepository();
