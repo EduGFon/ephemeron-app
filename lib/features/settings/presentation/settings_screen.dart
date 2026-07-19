@@ -675,10 +675,13 @@ class _GoogleAccountTile extends ConsumerWidget {
       await ref.read(googleAuthRepositoryProvider).signIn();
       // Pre-authorize Calendar + Tasks scopes together
       try {
-        await ref.read(googleAuthRepositoryProvider).getAccessToken(const [
-          AppConfig.googleCalendarScope,
-          AppConfig.googleTasksScope,
-        ]);
+        await ref.read(googleAuthRepositoryProvider).getAccessToken(
+          const [
+            AppConfig.googleCalendarScope,
+            AppConfig.googleTasksScope,
+          ],
+          promptIfNecessary: true,
+        );
       } on Exception {
         // Swallowed — features will re-prompt individually if needed.
       }

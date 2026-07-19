@@ -119,7 +119,7 @@ class DesktopGoogleAuthRepository extends GoogleAuthRepository {
         '&response_type=code'
         '&scope=${Uri.encodeComponent(scopes)}'
         '&state=$state'
-        '&prompt=consent'
+        '&prompt=select_account'
         '&access_type=offline';
 
     // 4. Launch browser
@@ -272,7 +272,10 @@ class DesktopGoogleAuthRepository extends GoogleAuthRepository {
   }
 
   @override
-  Future<String> getAccessToken(List<String> scopes) async {
+  Future<String> getAccessToken(
+    List<String> scopes, {
+    bool promptIfNecessary = false,
+  }) async {
     _ensureInitialized();
 
     final currentExpiry = _tokenExpiry;
@@ -306,8 +309,10 @@ class DesktopGoogleAuthRepository extends GoogleAuthRepository {
     );
 
     if (response.statusCode != HttpStatus.ok) {
-      // If refresh token is revoked/invalid, sign out automatically
-      await signOut();
+      // Only sign out if the refresh token was explicitly revoked/invalid
+      if (response.body.contains('invalid_grant')) {
+        await signOut();
+      }
       throw GoogleAuthException('Session expired or refresh failed: ${response.body}');
     }
 

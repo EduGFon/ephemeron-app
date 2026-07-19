@@ -97,7 +97,10 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
 
     if (_currentAccount != null && _signedInAccount == null) {
       try {
-        await _instance.attemptLightweightAuthentication();
+        final restored = await _instance.attemptLightweightAuthentication();
+        if (restored != null) {
+          _signedInAccount = restored;
+        }
       } catch (e) {
         DevLogger.log('Silent lightweight auth attempt on init: $e');
       }
@@ -161,7 +164,16 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
     _ensureInitialized();
     DevLogger.log('Starting Google Sign-In authenticate flow...');
     try {
-      await _instance.authenticate();
+      final account = await _instance.authenticate(
+        scopeHint: const [
+          AppConfig.googleCalendarScope,
+          AppConfig.googleTasksScope,
+        ],
+      );
+      _signedInAccount = account;
+      _currentAccount = _toAppAccount(account);
+      await _persistAccount(_currentAccount);
+      _accountController.add(_currentAccount);
       DevLogger.log('Google Sign-In authenticate flow call completed.');
     } on GoogleSignInException catch (e, stack) {
       DevLogger.logError('Google Sign-In failed (GoogleSignInException)', e, stack);
@@ -188,13 +200,19 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
   }
 
   @override
-  Future<String> getAccessToken(List<String> scopes) async {
+  Future<String> getAccessToken(
+    List<String> scopes, {
+    bool promptIfNecessary = false,
+  }) async {
     _ensureInitialized();
     var signedInAccount = _signedInAccount;
 
     if (signedInAccount == null) {
       try {
-        await _instance.attemptLightweightAuthentication();
+        final restored = await _instance.attemptLightweightAuthentication();
+        if (restored != null) {
+          _signedInAccount = restored;
+        }
         for (var i = 0; i < 5; i++) {
           if (_signedInAccount != null) break;
           await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -215,6 +233,11 @@ class GoogleSignInAuthRepository extends GoogleAuthRepository {
       if (existing != null) {
         DevLogger.log('Found existing authorized access token.');
         return existing.accessToken;
+      }
+
+      if (!promptIfNecessary) {
+        DevLogger.log('No cached token for scopes and promptIfNecessary is false.');
+        throw const GoogleAuthException('Scope authorization token not available silently.');
       }
 
       DevLogger.log('Consent screen required. Triggering authorizeScopes...');

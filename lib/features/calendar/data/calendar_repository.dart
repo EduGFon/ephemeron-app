@@ -183,11 +183,12 @@ class CalendarRepository {
   }) async {
     if (_authRepository.currentAccount == null) return const [];
 
-    final api = await _api();
-    final calendarList = await api.calendarList.list();
-    final calendars = calendarList.items ?? [];
+    try {
+      final api = await _api();
+      final calendarList = await api.calendarList.list();
+      final calendars = calendarList.items ?? [];
 
-    List<CalendarEvent> allEvents = [];
+      List<CalendarEvent> allEvents = [];
 
     if (calendars.isEmpty) {
       final result = await api.events.list(
@@ -244,6 +245,10 @@ class CalendarRepository {
     allEvents.sort((a, b) => a.start.compareTo(b.start));
     await _scheduleEventAlarms(allEvents);
     return allEvents;
+    } catch (e) {
+      DevLogger.log('refreshEventsFromRemote skipped: $e');
+      return const [];
+    }
   }
 
   Never _handleApiError(Object e) {

@@ -131,10 +131,13 @@ class _GoogleCalendarCard extends ConsumerWidget {
       // that already succeeded above — Calendar/Tasks features will
       // simply re-prompt individually if this didn't go through.
       try {
-        await ref.read(googleAuthRepositoryProvider).getAccessToken(const [
-          AppConfig.googleCalendarScope,
-          AppConfig.googleTasksScope,
-        ]);
+        await ref.read(googleAuthRepositoryProvider).getAccessToken(
+          const [
+            AppConfig.googleCalendarScope,
+            AppConfig.googleTasksScope,
+          ],
+          promptIfNecessary: true,
+        );
       } on Exception {
         // Swallowed on purpose — see comment above.
       }

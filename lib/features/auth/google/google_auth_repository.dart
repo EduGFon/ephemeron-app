@@ -88,10 +88,16 @@ abstract class GoogleAuthRepository {
   /// expiry) — silent renewal is attempted first internally, but falls
   /// back to an interactive prompt when that's not possible.
   /// Throws [GoogleAuthCancelledException] or [GoogleAuthException].
-  Future<String> getAccessToken(List<String> scopes);
+  Future<String> getAccessToken(
+    List<String> scopes, {
+    bool promptIfNecessary = false,
+  });
 
   /// Convenience wrapper for the common single-scope Calendar case —
   /// kept from Step 1 so existing call sites don't need to change.
-  Future<String> getCalendarAccessToken() =>
-      getAccessToken(const [AppConfig.googleCalendarScope]);
+  Future<String> getCalendarAccessToken({bool promptIfNecessary = false}) =>
+      getAccessToken(
+        const [AppConfig.googleCalendarScope],
+        promptIfNecessary: promptIfNecessary,
+      );
 }
