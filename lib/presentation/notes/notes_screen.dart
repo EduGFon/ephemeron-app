@@ -635,6 +635,15 @@ class _NoteCardContent extends StatelessWidget {
     return '${months[dt.month - 1]} ${dt.day}';
   }
 
+  String _preparePreviewContent(String content) {
+    // flutter_markdown requires checkboxes to be prefixed with a list bullet (e.g. "- [ ]")
+    // This regex converts standalone "[ ]" or "[x]" at the start of lines to "- [ ]" or "- [x]"
+    return content.replaceAllMapped(
+      RegExp(r'^(\s*)\[([ x])\]', multiLine: true),
+      (match) => '${match.group(1)}- [${match.group(2)}]',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasEventLink = note.eventId != null;
@@ -659,7 +668,7 @@ class _NoteCardContent extends StatelessWidget {
                 child: SingleChildScrollView(
                   physics: const NeverScrollableScrollPhysics(),
                   child: MarkdownBody(
-                    data: note.content,
+                    data: _preparePreviewContent(note.content),
                     softLineBreak: true,
                     styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
                       p: TextStyle(color: palette.text.withValues(alpha: 0.8), fontSize: 11, height: 1.4),
