@@ -29,7 +29,9 @@ import '../../../presentation/widgets/keyboard_avoid_padding.dart';
 import '../../../../presentation/widgets/confirmation_dialog.dart';
 import 'package:go_router/go_router.dart';
 import '../../calendar/presentation/event_form_sheet.dart';
+import '../../calendar/presentation/date_time_config_sheet.dart';
 import '../../alarms/domain/reminder_offset.dart';
+import '../../auth/google/google_auth_provider.dart';
 
 
 Future<void> showUnifiedCreationSheet(BuildContext context, {NavSection? currentSection, Object? entity}) {
@@ -107,7 +109,7 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
 
   // Advanced Event/Task fields
   RecurrenceConfig _recurrence = const RecurrenceConfig();
-  final Set<ReminderOffset> _selectedOffsets = {};
+  Set<ReminderOffset> _selectedOffsets = {};
   final List<String> _attendees = [];
 
   void _insertMarkdownAtCursor(String prefix) {
@@ -435,6 +437,55 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
             ],
           ),
           const SizedBox(height: 12),
+          if (_target == QuickAddTarget.event)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: palette.text.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.account_circle, size: 14, color: palette.text.withValues(alpha: 0.7)),
+                        const SizedBox(width: 4),
+                        Text(
+                          ref.watch(googleAccountProvider).value?.email ?? 'No Account',
+                          style: TextStyle(fontSize: 12, color: palette.text.withValues(alpha: 0.7)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: palette.text.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_month, size: 14, color: palette.text.withValues(alpha: 0.7)),
+                        const SizedBox(width: 4),
+                        Text(
+                          (() {
+                             final asyncCals = ref.watch(googleCalendarsProvider).value ?? [];
+                             final c = asyncCals.where((c) => c['id'] == _calendarId).firstOrNull ?? {'name': 'Primary'};
+                             return c['name'] ?? 'Primary Calendar';
+                          })(),
+                          style: TextStyle(fontSize: 12, color: palette.text.withValues(alpha: 0.7)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (widget.entity is Task) _buildTaskSpecificFeatures(widget.entity as Task, palette),
           TextField(
             controller: _titleController,
@@ -652,17 +703,18 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
     );
   }
 
-  Widget _buildIconButton(IconData icon, AppPalette palette, {required VoidCallback onPressed}) {
-    return _buildIconWrapper(
-      palette,
-      IconButton(
-        icon: Icon(icon, size: 20),
-        color: palette.text.withValues(alpha: 0.7),
-        onPressed: onPressed,
-        padding: EdgeInsets.zero,
+  Widget _buildIconButton(IconData icon, AppPalette palette, {required VoidCallback onPressed, Color? iconColor}) {
+    return IconButton(
+      icon: Icon(icon, color: iconColor ?? palette.text.withValues(alpha: 0.7), size: 20),
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.all(8),
       ),
     );
   }
+
+
 
   Future<void> _saveEntity() async {
     final title = _titleController.text.trim();
@@ -910,16 +962,23 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
     );
   }
 
-  Future<void> _pickEventDateAndTime() async {
-    await _pickDate(context, _startTime, (d) => setState(() {
-      _startTime = DateTime(d.year, d.month, d.day, _startTime.hour, _startTime.minute);
-      if (_endTime.isBefore(_startTime)) _endTime = _startTime.add(const Duration(minutes: 30));
-    }));
-    if (mounted) {
-      await _pickTime(context, TimeOfDay.fromDateTime(_startTime), (t) => setState(() {
-        _startTime = DateTime(_startTime.year, _startTime.month, _startTime.day, t.hour, t.minute);
-        if (_endTime.isBefore(_startTime)) _endTime = _startTime.add(const Duration(minutes: 30));
-      }));
+  Future<void> _pickEventDateAndTime(AppPalette palette) async {
+    final result = await showDateTimeConfigSheet(
+      context: context,
+      palette: palette,
+      initialStart: _startTime,
+      initialEnd: _endTime,
+      initialRecurrence: _recurrence,
+      initialReminderOffsets: _selectedOffsets,
+    );
+    if (result != null) {
+      setState(() {
+        _startTime = result.start;
+        _endTime = result.end;
+        _recurrence = result.recurrence;
+        _selectedOffsets = result.reminderOffsets;
+      });
+      _markChanged();
     }
   }
 
@@ -968,19 +1027,24 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
                 ],
               ),
               const SizedBox(height: 12),
-              ..._attendees.map(
-                (email) => ListTile(
-                  dense: true,
-                  title: Text(email),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () {
-                      setDialogState(() => _attendees.remove(email));
-                      setState(() {});
-                      _markChanged();
-                    },
-                  ),
-                ),
+              ListView.builder(
+                shrinkWrap: true,
+                itemCount: _attendees.length,
+                itemBuilder: (ctx, idx) {
+                  final email = _attendees[idx];
+                  return ListTile(
+                    dense: true,
+                    title: Text(email),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () {
+                        setDialogState(() => _attendees.remove(email));
+                        setState(() {});
+                        _markChanged();
+                      },
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -1005,7 +1069,7 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.access_time, color: palette.primary),
             title: Text('Start: ${_startTime.toString().substring(0, 16)}', style: TextStyle(color: palette.text)),
-            onTap: _pickEventDateAndTime,
+            onTap: () => _pickEventDateAndTime(palette),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -1043,12 +1107,13 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
             onTap: () => _showLocationDialog(context),
           ),
           // Attendees
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.people_outline, color: palette.primary),
-            title: Text(_attendees.isNotEmpty ? '${_attendees.length} attendees' : 'Add attendees', style: TextStyle(color: palette.text)),
-            onTap: () => _showAttendeesDialog(context),
-          ),
+          if (_attendees.isNotEmpty)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.people_outline, color: palette.primary),
+              title: Text('${_attendees.length} attendees', style: TextStyle(color: palette.text)),
+              onTap: () => _showAttendeesDialog(context),
+            ),
         ],
       );
     } else if (_target == QuickAddTarget.task) {
@@ -1330,11 +1395,12 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
         _buildIconButton(
           Icons.access_time_rounded,
           palette,
-          onPressed: _pickEventDateAndTime,
+          onPressed: () => _pickEventDateAndTime(palette),
+          iconColor: (_startTime.day != DateTime.now().day || _selectedOffsets.isNotEmpty || _recurrence.type != RecurrenceType.none) ? palette.primary : null,
         ),
         const SizedBox(width: 8),
         PopupMenuButton<String>(
-          icon: Icon(Icons.account_circle_outlined, color: palette.text.withValues(alpha: 0.7), size: 20),
+          icon: Icon(Icons.account_circle_outlined, color: _calendarId != 'primary' ? palette.primary : palette.text.withValues(alpha: 0.7), size: 20),
           color: palette.surface,
           onSelected: (cal) => setState(() => _calendarId = cal),
           itemBuilder: (ctx) => googleCalendars.map((c) => 
@@ -1342,7 +1408,12 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
           ).toList(),
         ),
         const SizedBox(width: 8),
-        _buildIconButton(Icons.group_add_outlined, palette, onPressed: () {}),
+        _buildIconButton(
+          Icons.group_add_outlined, 
+          palette, 
+          onPressed: () => _showAttendeesDialog(context),
+          iconColor: _attendees.isNotEmpty ? palette.primary : null,
+        ),
         const SizedBox(width: 8),
         PopupMenuButton<String>(
           icon: Icon(Icons.event_available_outlined, color: palette.text.withValues(alpha: 0.7), size: 20),
