@@ -1,4 +1,5 @@
 import 'dart:ui';
+import '../../quick_add/application/quick_add_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,7 +8,6 @@ import '../../../core/theme/theme_palettes.dart';
 import '../../../data/local/database.dart';
 import '../../tasks/application/task_providers.dart';
 import '../../tasks/domain/task_sort_option.dart';
-import '../../tasks/presentation/task_form_sheet.dart';
 import '../application/matrix_providers.dart';
 import '../domain/matrix_quadrant.dart';
 import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
@@ -291,11 +291,7 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
         ),
         Expanded(
           child: GestureDetector(
-            onTap: () => showTaskFormSheet(
-              context,
-              listId: task.listId,
-              existingTask: task,
-            ),
+            onTap: () => ref.read(quickAddProvider.notifier).expand(task),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,

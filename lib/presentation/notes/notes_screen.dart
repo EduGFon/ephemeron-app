@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' show Value;
+import '../../features/quick_add/application/quick_add_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -8,7 +9,6 @@ import '../../core/theme/theme_palettes.dart';
 import '../../data/local/database.dart';
 import '../../features/notes/application/notes_providers.dart';
 import '../../features/notes/data/notes_repository.dart';
-import 'note_form_sheet.dart';
 import 'package:ephemeron/core/widgets/app_loading_indicator.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -399,7 +399,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                 return _DraggableNoteCard(
                   note: note,
                   palette: palette,
-                  onTap: () => _showNoteFormSheet(context, ref, existingNote: note),
+                  onTap: () => ref.read(quickAddProvider.notifier).expand(note),
                   onLongPress: () => _showDeleteNoteDialog(context, ref, note),
                 );
               },
@@ -543,36 +543,6 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
     );
   }
 
-  void _showNoteFormSheet(BuildContext context, WidgetRef ref, {Note? existingNote}) {
-    showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Dismiss',
-      barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, anim1, anim2) {
-        return Center(
-          child: SingleChildScrollView(
-            child: Material(
-              color: Colors.transparent,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: NoteFormSheet(existingNote: existingNote),
-              ),
-            ),
-          ),
-        );
-      },
-      transitionBuilder: (context, anim1, anim2, child) {
-        return ScaleTransition(
-          scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
-          child: FadeTransition(opacity: anim1, child: child),
-        );
-      },
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

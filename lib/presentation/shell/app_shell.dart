@@ -436,7 +436,9 @@ class _KeyboardAttachedFabLocation extends FloatingActionButtonLocation {
     final isKeyboardOpen = scaffoldGeometry.minInsets.bottom > 0;
     final double margin = isKeyboardOpen ? 0.0 : 16.0;
     
-    final double fabY = scaffoldGeometry.contentBottom - scaffoldGeometry.floatingActionButtonSize.height - margin;
+    // Use scaffoldSize.height if keyboard is closed so the pill covers the navbar
+    final double baseBottom = isKeyboardOpen ? scaffoldGeometry.contentBottom : scaffoldGeometry.scaffoldSize.height;
+    final double fabY = baseBottom - scaffoldGeometry.floatingActionButtonSize.height - margin;
     return Offset(fabX, fabY);
   }
 }

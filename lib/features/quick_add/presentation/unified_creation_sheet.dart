@@ -7,6 +7,13 @@ import '../../../core/theme/theme_palettes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../presentation/shell/nav_section.dart';
 import '../../../core/settings/session_restore.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:pasteboard/pasteboard.dart';
+import '../../../presentation/notes/markdown_syntax_highlighter.dart';
+import '../../../presentation/notes/smart_list_formatter.dart';
 import '../../calendar/application/calendar_providers.dart';
 import '../../calendar/domain/calendar_event.dart';
 import '../../tasks/application/task_providers.dart';
@@ -65,8 +72,10 @@ class UnifiedCreationSheet extends ConsumerStatefulWidget {
 
 class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
   final _titleController = TextEditingController();
-  final _descController = TextEditingController();
+  final _descController = MarkdownSyntaxHighlighter();
   final _titleFocusNode = FocusNode();
+  final _descFocusNode = FocusNode();
+  bool _isExpanded = false;
 
   late QuickAddTarget _target;
   int _priority = 0;
@@ -75,10 +84,18 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
   late DateTime _startTime;
   // ignore: unused_field
   late DateTime _endTime;
+  bool _isTaskCompleted = false;
+  bool _hasChanges = false;
+
+  void _markChanged() {
+    if (!_hasChanges) setState(() => _hasChanges = true);
+  }
 
   @override
   void initState() {
     super.initState();
+    _titleController.addListener(_markChanged);
+    _descController.addListener(_markChanged);
     _target = switch (widget.currentSection) {
       NavSection.calendar => QuickAddTarget.event,
       NavSection.habits => QuickAddTarget.habit,
@@ -88,15 +105,8 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
       _ => QuickAddTarget.task,
     };
     
-    if (widget.entity is Task) {
-      final task = widget.entity as Task;
-      _target = QuickAddTarget.task;
-      _titleController.text = task.title;
-      _descController.text = task.description ?? '';
-      _priority = task.priority;
-      _selectedListId = task.listId;
-    }
-    
+    _loadEntity();
+
     SessionRestore.saveOpenMenu('quick_add');
     
     final selectedDay = ref.read(selectedDayProvider);
@@ -105,18 +115,125 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
     _endTime = _startTime.add(const Duration(minutes: 30));
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && widget.entity == null) {
         _titleFocusNode.requestFocus();
       }
     });
+
+    _descFocusNode.onKeyEvent = (node, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.keyV &&
+          (HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed)) {
+        _handleManualImagePaste();
+      }
+      return KeyEventResult.ignored;
+    };
+  }
+
+  Future<void> _handleManualImagePaste() async {
+    try {
+      final imageBytes = await Pasteboard.image;
+      if (imageBytes != null && imageBytes.isNotEmpty) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName = 'pasted_${DateTime.now().millisecondsSinceEpoch}.png';
+        final savedImage = File('${appDir.path}/$fileName');
+        await savedImage.writeAsBytes(imageBytes);
+        final imageMarkdown = '\n![Image|250](file://${savedImage.path})\n';
+        _insertAtCursor(imageMarkdown);
+      }
+    } catch (_) {}
+  }
+
+  void _insertAtCursor(String textToInsert) {
+    final currentText = _descController.text;
+    final selection = _descController.selection;
+    if (selection.baseOffset >= 0) {
+      final newText = currentText.replaceRange(selection.start, selection.end, textToInsert);
+      _descController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + textToInsert.length),
+      );
+    } else {
+      _descController.text += textToInsert;
+    }
+  }
+
+  Future<void> _attachImage() async {
+    const typeGroup = XTypeGroup(
+      label: 'Images',
+      extensions: <String>['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    );
+    final XFile? file = await openFile(acceptedTypeGroups: <XTypeGroup>[typeGroup]);
+    if (file == null) return;
+    
+    final appDir = await getApplicationDocumentsDirectory();
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+    final savedImage = await File(file.path).copy('${appDir.path}/$fileName');
+    final imageMarkdown = '\n![${file.name}|250](file://${savedImage.path})\n';
+    
+    _insertAtCursor(imageMarkdown);
+  }
+
+  @override
+  void didUpdateWidget(UnifiedCreationSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entity != widget.entity) {
+      _loadEntity();
+    }
+  }
+
+  void _loadEntity() {
+    if (widget.entity == null) {
+      _titleController.clear();
+      _descController.clear();
+      _priority = 0;
+      _selectedListId = null;
+      _isTaskCompleted = false;
+      return;
+    }
+
+    if (widget.entity is Task) {
+      final task = widget.entity as Task;
+      _target = QuickAddTarget.task;
+      _titleController.text = task.title;
+      _descController.text = task.description ?? '';
+      _priority = task.priority;
+      _selectedListId = task.listId;
+      _isTaskCompleted = task.completedAt != null;
+    } else if (widget.entity is CalendarEvent) {
+      final ev = widget.entity as CalendarEvent;
+      _target = QuickAddTarget.event;
+      _titleController.text = ev.title;
+      _descController.text = ev.description ?? '';
+      _startTime = ev.start;
+      _endTime = ev.end;
+    } else if (widget.entity is Habit) {
+      final h = widget.entity as Habit;
+      _target = QuickAddTarget.habit;
+      _titleController.text = h.name;
+    } else if (widget.entity is Countdown) {
+      final c = widget.entity as Countdown;
+      _target = QuickAddTarget.countdown;
+      _titleController.text = c.title;
+    } else if (widget.entity is Note) {
+      final n = widget.entity as Note;
+      _target = QuickAddTarget.note;
+      _titleController.text = n.title;
+      _descController.text = n.content;
+    }
+    
+    // Reset changes flag after initial load
+    _hasChanges = false;
   }
 
   @override
   void dispose() {
+    _titleController.removeListener(_markChanged);
+    _descController.removeListener(_markChanged);
     _titleController.dispose();
     _descController.dispose();
     _titleFocusNode.dispose();
-    SessionRestore.clearOpenMenu();
+    _descFocusNode.dispose();
     super.dispose();
   }
 
@@ -162,22 +279,57 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
   @override
   Widget build(BuildContext context) {
     final palette = ref.watch(themeEngineProvider);
+    final screenHeight = MediaQuery.of(context).size.height;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final fullScreenHeight = screenHeight - keyboardHeight;
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      height: _isExpanded ? fullScreenHeight : null,
+      constraints: BoxConstraints(
+        maxHeight: _isExpanded ? fullScreenHeight : screenHeight * 0.5,
+      ),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: _isExpanded ? BorderRadius.zero : BorderRadius.circular(28),
       ),
-      padding: const EdgeInsets.all(24),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.90, // Allow filling most of the screen
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-          Row(
+      padding: EdgeInsets.fromLTRB(24, _isExpanded ? 48 : 12, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          GestureDetector(
+            onVerticalDragUpdate: (details) {
+              if (details.primaryDelta! < -5) {
+                if (!_isExpanded) setState(() => _isExpanded = true);
+              } else if (details.primaryDelta! > 5) {
+                if (_isExpanded) setState(() => _isExpanded = false);
+              }
+            },
+            child: Container(
+              color: Colors.transparent, // wider hit area
+              padding: const EdgeInsets.only(bottom: 12, top: 4),
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: palette.text.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               PopupMenuButton<QuickAddTarget>(
@@ -208,41 +360,9 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
                 ).toList(),
               ),
               const Spacer(),
-              _buildPrioritySelector(palette),
+              _buildTopBarContext(palette),
               const SizedBox(width: 4),
-              PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: palette.text.withValues(alpha: 0.6)),
-                color: palette.surface,
-                onSelected: (val) {
-                  // Handle options
-                },
-                itemBuilder: (context) {
-                  final items = <PopupMenuEntry<String>>[];
-                  
-                  // Common options
-                  items.add(PopupMenuItem(value: 'date_time', child: Row(children: [Icon(Icons.access_time_rounded, color: palette.text, size: 20), const SizedBox(width: 12), Text('Date, Time & Alarm', style: TextStyle(color: palette.text))])));
-                  
-                  // Specific options
-                  if (_target == QuickAddTarget.task) {
-                    items.add(PopupMenuItem(value: 'subtasks', child: Row(children: [Icon(Icons.checklist, color: palette.text, size: 20), const SizedBox(width: 12), Text('Subtasks', style: TextStyle(color: palette.text))])));
-                    items.add(PopupMenuItem(value: 'wont_do', child: Row(children: [Icon(Icons.block, color: palette.text, size: 20), const SizedBox(width: 12), Text('Toggle Won\'t Do', style: TextStyle(color: palette.text))])));
-                  } else if (_target == QuickAddTarget.event) {
-                    items.add(PopupMenuItem(value: 'location', child: Row(children: [Icon(Icons.location_on_outlined, color: palette.text, size: 20), const SizedBox(width: 12), Text('Location', style: TextStyle(color: palette.text))])));
-                    items.add(PopupMenuItem(value: 'url', child: Row(children: [Icon(Icons.link, color: palette.text, size: 20), const SizedBox(width: 12), Text('URL', style: TextStyle(color: palette.text))])));
-                  } else if (_target == QuickAddTarget.habit) {
-                    items.add(PopupMenuItem(value: 'color', child: Row(children: [Icon(Icons.palette_outlined, color: palette.text, size: 20), const SizedBox(width: 12), Text('Color', style: TextStyle(color: palette.text))])));
-                  }
-                  
-                  // Edit options
-                  if (widget.entity != null) {
-                    items.add(const PopupMenuDivider());
-                    items.add(PopupMenuItem(value: 'duplicate', child: Row(children: [Icon(Icons.copy, color: palette.text, size: 20), const SizedBox(width: 12), Text('Duplicate', style: TextStyle(color: palette.text))])));
-                    items.add(const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, color: Colors.redAccent, size: 20), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.redAccent))])));
-                  }
-                  
-                  return items;
-                },
-              ),
+              _buildMoreMenuContext(palette),
             ],
           ),
           const SizedBox(height: 12),
@@ -250,7 +370,7 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
           TextField(
             controller: _titleController,
             focusNode: _titleFocusNode,
-            autofocus: true,
+            autofocus: widget.entity == null,
             style: TextStyle(color: palette.text, fontSize: 18, fontWeight: FontWeight.w500),
             decoration: InputDecoration(
               hintText: _titleHint,
@@ -262,58 +382,96 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
           ),
           TextField(
             controller: _descController,
+            focusNode: _descFocusNode,
             style: TextStyle(color: palette.text, fontSize: 14),
-            maxLines: null, // Allow multiline
-            decoration: InputDecoration(
-              hintText: 'Description',
-              hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.5)),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: const EdgeInsets.only(bottom: 16),
+            maxLines: null,
+            expands: false,
+            inputFormatters: [SmartListFormatter()],
+              contentInsertionConfiguration: ContentInsertionConfiguration(
+                allowedMimeTypes: const ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+                onContentInserted: (KeyboardInsertedContent content) async {
+                  if (content.data != null) {
+                    final appDir = await getApplicationDocumentsDirectory();
+                    String ext = 'png';
+                    if (content.mimeType.contains('jpeg')) ext = 'jpg';
+                    if (content.mimeType.contains('gif')) ext = 'gif';
+                    final fileName = 'pasted_${DateTime.now().millisecondsSinceEpoch}.$ext';
+                    final savedImage = File('${appDir.path}/$fileName');
+                    await savedImage.writeAsBytes(content.data!);
+                    final imageMarkdown = '\n![Image|250](file://${savedImage.path})\n';
+                    _insertAtCursor(imageMarkdown);
+                  }
+                },
+              ),
+              onTap: () {
+                if (_descController.handleTapAtCursor()) {
+                  setState(() {});
+                }
+              },
+              onChanged: (text) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'Description',
+                hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.5)),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.only(bottom: 16),
+              ),
+            ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildTagSelector(palette),
-              const SizedBox(width: 8),
-              _buildListSelector(palette),
-              const SizedBox(width: 8),
-              _buildIconButton(Icons.attach_file, palette, onPressed: () {}),
-              const Spacer(),
-              _buildSendButton(palette),
+              Expanded(child: _buildBottomBarContext(palette)),
+              if (widget.entity == null || _hasChanges) ...[
+                const SizedBox(width: 16),
+                _buildSendButton(palette),
+              ],
             ],
           ),
         ],
-        ),
       ),
     );
   }
 
   Widget _buildTaskSpecificFeatures(Task task, AppPalette palette) {
-    // This replicates the image style with a checkbox and red overdue date
+    String? overdueText;
+    if (task.dueDate != null && !task.isCompleted) {
+      final now = DateTime.now();
+      if (task.dueDate!.isBefore(now)) {
+        final diff = now.difference(task.dueDate!).inDays;
+        overdueText = diff > 0 ? '${diff}d overdue' : 'overdue';
+      }
+    }
+    
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
         children: [
-          Icon(
-            task.completedAt != null ? Icons.check_box : Icons.check_box_outline_blank,
-            color: task.completedAt != null ? palette.primary : palette.text.withValues(alpha: 0.5),
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Jul 1, 21:15 - 21:45, 18d overdue', // Mock text matching image
-              style: TextStyle(
-                color: AppColors.priorityHigh, // Red color
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          GestureDetector(
+            onTap: () => setState(() => _isTaskCompleted = !_isTaskCompleted),
+            child: Icon(
+              _isTaskCompleted ? Icons.check_box : Icons.check_box_outline_blank,
+              color: _isTaskCompleted ? palette.primary : palette.text.withValues(alpha: 0.5),
+              size: 20,
             ),
           ),
+          const SizedBox(width: 12),
+          if (overdueText != null)
+            Expanded(
+              child: Text(
+                overdueText,
+                style: const TextStyle(
+                  color: AppColors.priorityHigh, // Red color
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
         ],
       ),
     );
@@ -545,6 +703,143 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
         Navigator.of(context).pop();
       }
     }
+  }
+
+  Future<void> _deleteEntity() async {
+    if (widget.entity == null) return;
+    final entity = widget.entity!;
+    if (entity is Task) {
+      await ref.read(taskRepositoryProvider).softDeleteTask(entity.id);
+    } else if (entity is CalendarEvent) {
+      await ref.read(calendarRepositoryProvider).deleteThisAndFutureEvents(entity);
+    } else if (entity is Habit) {
+      await ref.read(habitRepositoryProvider).deleteHabit(entity.id);
+    } else if (entity is Countdown) {
+      await ref.read(countdownRepositoryProvider).deleteCountdown(entity.id);
+    } else if (entity is Note) {
+      await ref.read(notesRepositoryProvider).deleteNote(entity.id);
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Widget _buildTopBarContext(AppPalette palette) {
+    switch (_target) {
+      case QuickAddTarget.note:
+      case QuickAddTarget.countdown:
+        return IconButton(icon: Icon(Icons.star_border, color: palette.text.withValues(alpha: 0.6)), onPressed: () {});
+      case QuickAddTarget.task:
+        return _buildPrioritySelector(palette);
+      case QuickAddTarget.event:
+        return _buildIconWrapper(palette, const Center(child: Text('Free', style: TextStyle(fontSize: 12))));
+      case QuickAddTarget.habit:
+        return IconButton(icon: Icon(Icons.center_focus_strong_outlined, color: palette.text.withValues(alpha: 0.6)), onPressed: () {});
+    }
+  }
+
+  Widget _buildMoreMenuContext(AppPalette palette) {
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.more_vert, color: palette.text.withValues(alpha: 0.6)),
+      color: palette.surface,
+      onSelected: (val) {
+        if (val == 'delete') _deleteEntity();
+      },
+      itemBuilder: (context) {
+        final items = <PopupMenuEntry<String>>[];
+        if (_target == QuickAddTarget.note) {
+          items.add(PopupMenuItem(value: 'date_time', child: Row(children: [Icon(Icons.access_time_rounded, color: palette.text, size: 20), const SizedBox(width: 12), Text('Date/Time', style: TextStyle(color: palette.text))])));
+          items.add(PopupMenuItem(value: 'focus', child: Row(children: [Icon(Icons.center_focus_strong, color: palette.text, size: 20), const SizedBox(width: 12), Text('Focus', style: TextStyle(color: palette.text))])));
+          items.add(PopupMenuItem(value: 'duplicate', child: Row(children: [Icon(Icons.copy, color: palette.text, size: 20), const SizedBox(width: 12), Text('Duplicate', style: TextStyle(color: palette.text))])));
+        } else if (_target == QuickAddTarget.task) {
+          items.add(PopupMenuItem(value: 'wont_do', child: Row(children: [Icon(Icons.block, color: palette.text, size: 20), const SizedBox(width: 12), Text('Won\'t Do', style: TextStyle(color: palette.text))])));
+          items.add(PopupMenuItem(value: 'focus', child: Row(children: [Icon(Icons.center_focus_strong, color: palette.text, size: 20), const SizedBox(width: 12), Text('Focus', style: TextStyle(color: palette.text))])));
+          items.add(PopupMenuItem(value: 'duplicate', child: Row(children: [Icon(Icons.copy, color: palette.text, size: 20), const SizedBox(width: 12), Text('Duplicate', style: TextStyle(color: palette.text))])));
+        } else if (_target == QuickAddTarget.event) {
+          items.add(PopupMenuItem(value: 'focus', child: Row(children: [Icon(Icons.center_focus_strong, color: palette.text, size: 20), const SizedBox(width: 12), Text('Focus', style: TextStyle(color: palette.text))])));
+          items.add(PopupMenuItem(value: 'duplicate', child: Row(children: [Icon(Icons.copy, color: palette.text, size: 20), const SizedBox(width: 12), Text('Duplicate', style: TextStyle(color: palette.text))])));
+        } else if (_target == QuickAddTarget.countdown) {
+          items.add(PopupMenuItem(value: 'focus', child: Row(children: [Icon(Icons.center_focus_strong, color: palette.text, size: 20), const SizedBox(width: 12), Text('Focus', style: TextStyle(color: palette.text))])));
+          items.add(PopupMenuItem(value: 'duplicate', child: Row(children: [Icon(Icons.copy, color: palette.text, size: 20), const SizedBox(width: 12), Text('Duplicate', style: TextStyle(color: palette.text))])));
+        } else if (_target == QuickAddTarget.habit) {
+          items.add(PopupMenuItem(value: 'archive', child: Row(children: [Icon(Icons.archive_outlined, color: palette.text, size: 20), const SizedBox(width: 12), Text('Archive', style: TextStyle(color: palette.text))])));
+        }
+
+        if (widget.entity != null) {
+          items.add(const PopupMenuDivider());
+          items.add(const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, color: Colors.redAccent, size: 20), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.redAccent))])));
+        }
+        return items;
+      },
+    );
+  }
+
+  Widget _buildBottomBarContext(AppPalette palette) {
+    List<Widget> children = [];
+    if (_target == QuickAddTarget.note) {
+      children = [
+        _buildIconButton(Icons.check_box_outlined, palette, onPressed: () {}),
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.format_list_bulleted, palette, onPressed: () {}),
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.format_list_numbered, palette, onPressed: () {}),
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.attach_file, palette, onPressed: _attachImage),
+        const SizedBox(width: 8),
+        _buildTagSelector(palette),
+      ];
+    } else if (_target == QuickAddTarget.task) {
+      children = [
+        _buildIconButton(Icons.access_time_rounded, palette, onPressed: () {}),
+        const SizedBox(width: 8),
+        _buildTagSelector(palette),
+        const SizedBox(width: 8),
+        _buildListSelector(palette),
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.account_tree_outlined, palette, onPressed: () {}), // Subtask
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.attach_file, palette, onPressed: _attachImage),
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.star_border, palette, onPressed: () {}),
+      ];
+    } else if (_target == QuickAddTarget.event) {
+      children = [
+        _buildIconButton(Icons.access_time_rounded, palette, onPressed: () {}),
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.account_circle_outlined, palette, onPressed: () {}), // Calendar/Account
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.group_add_outlined, palette, onPressed: () {}), // People/Video
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.event_available_outlined, palette, onPressed: () {}), // Attending options
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.location_on_outlined, palette, onPressed: () {}),
+      ];
+    } else if (_target == QuickAddTarget.countdown) {
+      children = [
+        _buildIconButton(Icons.access_time_rounded, palette, onPressed: () {}),
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.cake_outlined, palette, onPressed: () {}), // Toggle age
+        const SizedBox(width: 8),
+        _buildTagSelector(palette),
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.attach_file, palette, onPressed: _attachImage),
+      ];
+    } else if (_target == QuickAddTarget.habit) {
+      children = [
+        _buildIconButton(Icons.repeat, palette, onPressed: () {}), // Frequency
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.flag_outlined, palette, onPressed: () {}), // Goal amount
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.calendar_today, palette, onPressed: () {}), // Start date
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.check_circle_outline, palette, onPressed: () {}), // Goal days
+        const SizedBox(width: 8),
+        _buildIconButton(Icons.folder_outlined, palette, onPressed: () {}), // Section
+      ];
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: children),
+    );
   }
 
   Widget _buildSendButton(AppPalette palette) {
