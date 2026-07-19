@@ -14,3 +14,6 @@
 - **Conventional Commit Suggestion**: After making any code changes, output a
   conventional commit message. Write the message _only_; do not run `git add` or
   `git commit` commands.
+- **Cross-Platform**: Every code wrote must be thought and reasoned to work
+  across all supported devices. Supported devices: Android (Max priority),
+  Linux and Web (Medium priority), Windows (Low priority).
