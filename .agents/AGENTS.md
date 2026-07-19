@@ -17,3 +17,6 @@
 - **Cross-Platform**: Every code wrote must be thought and reasoned to work
   across all supported devices. Supported devices: Android (Max priority),
   Linux and Web (Medium priority), Windows (Low priority).
+- **Efficiency**: Every solution built must be highly efficient on battery (use
+  as less battery as possible) and the app must be as much smoother and
+  lightweight as possible.
