@@ -22,12 +22,12 @@ dependencies:
   # Routing — StatefulShellRoute gives us persistent per-tab state across
   # the bottom nav, which a plain Navigator does not.
   go_router: ^17.3.0
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.3
 
   # Local persistence — chosen over Isar/Hive for full SQL + reactive
   # streams + genuine cross-platform support including Web (via WASM).
-  drift: ^2.30.0
-  drift_flutter: ^0.3.0
+  drift: ^2.34.2
+  drift_flutter: ^0.3.1
   path_provider: ^2.1.4
   path: ^1.9.0
 
@@ -36,7 +36,7 @@ dependencies:
   shared_preferences: ^2.3.2
 
   # IDs for local-only records not yet mirrored to Google.
-  uuid: ^4.4.2
+  uuid: ^4.6.0
 
   # Auth — Google Calendar sign-in/authorization (Android + Web; a
   # desktop implementation is added later, see google_auth_repository.dart)
@@ -58,7 +58,7 @@ dependencies:
   # `flutter pub upgrade --major-versions` will happily jump this to v22
   # again and break the build — this needs a deliberate, tested rewrite
   # against the new API before upgrading, not an automatic bump.
-  flutter_local_notifications: ^22.0.1
+  flutter_local_notifications: ^22.1.0
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0
 
@@ -76,13 +76,12 @@ dependencies:
   wakelock_plus: ^1.2.8
 
   # Access to the native device calendar (Step 10)
-  device_calendar_plus: ^0.4.0
+  device_calendar_plus: ^0.7.1
 
   # OS battery-saver detection, feeding the app's own power-saving
   # setting (Step 9).
-  battery_plus: ^7.1.0
+  battery_plus: ^7.1.1
   flutter_animate: ^4.5.2
-  flutter_markdown: ^0.7.7+1
   image_picker: ^1.1.2
   local_notifier: ^0.1.6
 
@@ -91,11 +90,12 @@ dependencies:
   flutter_native_splash: ^2.4.8
   pasteboard: ^0.5.0
   file_selector: ^1.1.0
+  flutter_markdown_plus: ^1.0.12
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  build_runner: ^2.4.11
-  drift_dev: ^2.30.0
+  build_runner: ^2.15.1
+  drift_dev: ^2.34.0
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
 flutter:

@@ -468,22 +468,9 @@ class _QuickAddPill extends ConsumerWidget {
       return 'Add ${currentSection.label}';
     }
 
-    return PopScope(
-      canPop: !isExpanded,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && isExpanded) {
-          ref.read(quickAddProvider.notifier).close();
-        }
-      },
-      child: TapRegion(
-        onTapOutside: (event) {
-          if (isExpanded) {
-            ref.read(quickAddProvider.notifier).close();
-          }
-        },
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
           child: isExpanded
             ? Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -541,8 +528,6 @@ class _QuickAddPill extends ConsumerWidget {
                   ),
                 ),
               ),
-        ),
-      ),
-    );
+        );
   }
 }

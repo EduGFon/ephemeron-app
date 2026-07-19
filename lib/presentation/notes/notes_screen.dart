@@ -2,7 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import '../../features/quick_add/application/quick_add_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../core/theme/theme_engine_provider.dart';
 import '../../core/theme/theme_palettes.dart';

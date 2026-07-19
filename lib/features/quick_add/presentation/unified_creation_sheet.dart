@@ -340,7 +340,11 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
         if (didPop) return;
         _closeSheet();
       },
-      child: AnimatedContainer(
+      child: TapRegion(
+        onTapOutside: (event) {
+          _closeSheet();
+        },
+        child: AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
       height: _isExpanded ? fullScreenHeight : null,
@@ -490,6 +494,7 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
           ),
         ],
       ),
+    ),
     ),
     );
   }
