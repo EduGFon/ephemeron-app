@@ -36,6 +36,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
     final foldersAsync = ref.watch(foldersStreamProvider);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,

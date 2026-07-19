@@ -25,6 +25,7 @@ class FocusScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Focus', style: TextStyle(color: palette.text, fontWeight: FontWeight.bold)),

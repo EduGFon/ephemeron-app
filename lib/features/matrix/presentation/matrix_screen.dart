@@ -23,6 +23,7 @@ class MatrixScreen extends ConsumerWidget {
     final isLoaded = ref.watch(allActiveTasksProvider).hasValue;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Eisenhower Matrix', style: TextStyle(fontWeight: FontWeight.bold)),

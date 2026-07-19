@@ -22,6 +22,7 @@ class CountdownScreen extends ConsumerWidget {
     final palette = ref.watch(themeEngineProvider);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Countdown', style: TextStyle(color: palette.text, fontWeight: FontWeight.bold)),

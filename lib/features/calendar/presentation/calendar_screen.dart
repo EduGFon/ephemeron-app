@@ -137,6 +137,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       child: Focus(
         autofocus: true,
         child: Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: GestureDetector(

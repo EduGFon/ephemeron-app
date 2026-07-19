@@ -22,6 +22,7 @@ class HabitsScreen extends ConsumerWidget {
     final palette = ref.watch(themeEngineProvider);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Row(

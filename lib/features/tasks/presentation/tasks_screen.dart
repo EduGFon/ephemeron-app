@@ -45,6 +45,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     final currentListName = _getCurrentListName(lists, customSmartLists, currentId);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,

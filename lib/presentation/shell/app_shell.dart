@@ -191,6 +191,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent, // Background handled by PremiumBackground
       extendBody: false, // Content is padded to fit above the bottom navigation bar
       body: widget.navigationShell,
@@ -205,11 +206,9 @@ class _AppShellState extends ConsumerState<AppShell> {
             )
           : null,
       floatingActionButtonLocation: const _KeyboardAttachedFabLocation(),
-      bottomNavigationBar: MediaQuery.of(context).viewInsets.bottom > 0
-          ? const SizedBox.shrink()
-          : _PremiumNavigationBar(
-              isPill: settings.usePillNavigation,
-              pinned: pinned,
+      bottomNavigationBar: _PremiumNavigationBar(
+        isPill: settings.usePillNavigation,
+        pinned: pinned,
         selectedIndex: selectedIndex,
         palette: palette,
         onDestinationSelected: (index) {
