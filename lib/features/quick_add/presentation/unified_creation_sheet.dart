@@ -57,6 +57,7 @@ class UnifiedCreationSheet extends ConsumerStatefulWidget {
 class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
+  final _titleFocusNode = FocusNode();
 
   late QuickAddTarget _target;
   int _priority = 0;
@@ -84,23 +85,40 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
     final now = DateTime.now();
     _startTime = DateTime(selectedDay.year, selectedDay.month, selectedDay.day, now.hour + 1, now.minute);
     _endTime = _startTime.add(const Duration(minutes: 30));
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _titleFocusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
+    _titleFocusNode.dispose();
     SessionRestore.clearOpenMenu();
     super.dispose();
   }
 
   String _getTargetLabel(QuickAddTarget t) {
     switch (t) {
-      case QuickAddTarget.event: return 'Events';
-      case QuickAddTarget.task: return 'Tasks';
-      case QuickAddTarget.habit: return 'Habits';
-      case QuickAddTarget.countdown: return 'Countdowns';
-      case QuickAddTarget.note: return 'Notes';
+      case QuickAddTarget.event: return 'Event';
+      case QuickAddTarget.task: return 'Task';
+      case QuickAddTarget.habit: return 'Habit';
+      case QuickAddTarget.countdown: return 'Countdown';
+      case QuickAddTarget.note: return 'Note';
+    }
+  }
+
+  IconData _getTargetIcon(QuickAddTarget t) {
+    switch (t) {
+      case QuickAddTarget.event: return Icons.calendar_today_outlined;
+      case QuickAddTarget.task: return Icons.check_circle_outline;
+      case QuickAddTarget.habit: return Icons.loop;
+      case QuickAddTarget.countdown: return Icons.timer_outlined;
+      case QuickAddTarget.note: return Icons.sticky_note_2_outlined;
     }
   }
 
@@ -157,7 +175,13 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
                 itemBuilder: (context) => QuickAddTarget.values.map((t) => 
                   PopupMenuItem(
                     value: t,
-                    child: Text(_getTargetLabel(t), style: TextStyle(color: palette.text)),
+                    child: Row(
+                      children: [
+                        Icon(_getTargetIcon(t), color: palette.text, size: 20),
+                        const SizedBox(width: 12),
+                        Text(_getTargetLabel(t), style: TextStyle(color: palette.text)),
+                      ],
+                    ),
                   )
                 ).toList(),
               ),
@@ -166,6 +190,7 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
           const SizedBox(height: 12),
           TextField(
             controller: _titleController,
+            focusNode: _titleFocusNode,
             autofocus: true,
             style: TextStyle(color: palette.text, fontSize: 18, fontWeight: FontWeight.w500),
             decoration: InputDecoration(

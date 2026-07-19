@@ -435,7 +435,7 @@ class _KeyboardAttachedFabLocation extends FloatingActionButtonLocation {
     final isKeyboardOpen = scaffoldGeometry.minInsets.bottom > 0;
     final double margin = isKeyboardOpen ? 0.0 : 16.0;
     
-    final double fabY = scaffoldGeometry.scaffoldSize.height - scaffoldGeometry.floatingActionButtonSize.height - margin;
+    final double fabY = scaffoldGeometry.contentBottom - scaffoldGeometry.floatingActionButtonSize.height - margin;
     return Offset(fabX, fabY);
   }
 }
@@ -473,9 +473,15 @@ class _QuickAddPillState extends ConsumerState<_QuickAddPill> {
           setState(() => _isExpanded = false);
         }
       },
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
+      child: TapRegion(
+        onTapOutside: (event) {
+          if (_isExpanded) {
+            setState(() => _isExpanded = false);
+          }
+        },
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
         child: _isExpanded
             ? Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -532,6 +538,7 @@ class _QuickAddPillState extends ConsumerState<_QuickAddPill> {
                   ),
                 ),
               ),
+        ),
       ),
     );
   }
