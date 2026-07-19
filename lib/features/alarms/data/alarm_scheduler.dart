@@ -11,6 +11,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:uuid/uuid.dart';
+import 'package:local_notifier/local_notifier.dart';
 
 import '../../../core/routing/root_navigator_key.dart';
 import '../../../data/local/database.dart';
@@ -71,7 +72,7 @@ class AlarmAction {
 class AlarmScheduler {
   /// Immediate (non-scheduled) notifications via [showOngoingNotification]
   /// still work on web — only scheduling/repetition doesn't.
-  bool get supportsScheduledAlarms => !kIsWeb && !Platform.isLinux;
+  bool get supportsScheduledAlarms => !kIsWeb && Platform.isAndroid;
 
   Timer? _localAlarmTimer;
   final List<LocalAlarm> _localAlarms = [];
@@ -91,7 +92,15 @@ class AlarmScheduler {
       _startLocalAlarmPolling();
     }
 
-    if (kIsWeb || Platform.isLinux) return;
+    if (!kIsWeb && !Platform.isAndroid) {
+      try {
+        await localNotifier.setup(appName: 'Ephemeron');
+      } catch (e) {
+        debugPrint('Failed to setup localNotifier: $e');
+      }
+    }
+
+    if (!supportsScheduledAlarms) return;
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _plugin.initialize(
@@ -427,7 +436,7 @@ class AlarmScheduler {
     bool isCountdown = false,
     Duration? duration,
   }) async {
-    if (kIsWeb || Platform.isLinux) return;
+    if (!supportsScheduledAlarms) return;
 
     await requestPermissions();
 
@@ -478,7 +487,7 @@ class AlarmScheduler {
   }
 
   Future<void> cancelOngoingNotification(int id) async {
-    if (kIsWeb || Platform.isLinux) return;
+    if (!supportsScheduledAlarms) return;
 
     if (Platform.isAndroid) {
       final android = _plugin.resolvePlatformSpecificImplementation<
@@ -653,6 +662,37 @@ class AlarmScheduler {
     final isConstant = alarm.preset == AlarmPreset.constant;
     final isLongSound = alarm.preset == AlarmPreset.strong || isConstant;
     _playAlarmSound(longSound: isLongSound, loop: isConstant);
+
+    if (!kIsWeb && !Platform.isAndroid) {
+      try {
+        final notification = LocalNotification(
+          title: alarm.title,
+          body: alarm.body.isNotEmpty ? alarm.body : 'Ephemeron Alarm',
+          actions: [
+            LocalNotificationAction(text: 'Mark Done'),
+            LocalNotificationAction(text: 'Snooze'),
+          ],
+        );
+        notification.onClickAction = (index) {
+          _stopAlarmSound();
+          final payload = AlarmPayload(
+            entityId: alarm.entityId,
+            title: alarm.title,
+            body: alarm.body,
+            preset: alarm.preset,
+            siblingIds: alarm.siblingIds,
+          );
+          if (index == 0) {
+            markDone(payload);
+          } else if (index == 1) {
+            unawaited(snooze(payload, snoozeFor: const Duration(minutes: 5)));
+          }
+        };
+        notification.show();
+      } catch (e) {
+        debugPrint('Failed to show local_notifier: $e');
+      }
+    }
 
     final context = rootNavigatorKey.currentContext;
     if (context == null) return;
