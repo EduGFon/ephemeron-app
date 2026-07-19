@@ -3,14 +3,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'markdown_syntax_highlighter.dart';
 import 'smart_list_formatter.dart';
-import 'markdown_preview_with_lists.dart';
 
 import '../../core/theme/theme_engine_provider.dart';
 import '../../core/theme/theme_palettes.dart';
@@ -40,12 +38,10 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
   Timer? _contentTypingTimer;
   bool _isSaving = false;
   bool _isFullScreen = false;
-  bool _contentPreviewMode = false;
 
   @override
   void initState() {
     super.initState();
-    _contentPreviewMode = widget.existingNote != null;
     SessionRestore.saveOpenMenu('note', entityId: widget.existingNote?.id);
     _titleController.addListener(_onTitleChanged);
     _contentController.addListener(_onContentChanged);
@@ -181,29 +177,6 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                   tooltip: 'Attach Image',
                   onPressed: _attachImage,
                 ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _contentPreviewMode = !_contentPreviewMode;
-                      if (!_contentPreviewMode) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _contentFocusNode.requestFocus();
-                        });
-                      } else {
-                        _contentFocusNode.unfocus();
-                      }
-                    });
-                  },
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    _contentPreviewMode ? 'Edit' : 'Preview',
-                    style: TextStyle(color: palette.primary, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
                 if (existingNote != null)
                   IconButton(
                     icon: Icon(Icons.delete_outline, color: Colors.redAccent.withValues(alpha: 0.8)),
@@ -232,54 +205,22 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
         
         // ── Note Body Area ──
         Expanded(
-          child: _contentPreviewMode
-              ? SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() => _contentPreviewMode = false);
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _contentFocusNode.requestFocus();
-                      });
-                    },
-                    child: _contentController.text.trim().isEmpty
-                        ? Text(
-                            'Type your note here. Click to edit.',
-                            style: TextStyle(
-                              color: palette.text.withValues(alpha: 0.3),
-                              fontStyle: FontStyle.italic,
-                              fontSize: 14,
-                            ),
-                          )
-                        : MarkdownPreviewWithLists(
-                            data: _contentController.text,
-                            onChanged: (newText) {
-                              setState(() {
-                                _contentController.text = newText;
-                              });
-                            },
-                            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                              p: TextStyle(color: palette.text, fontSize: 14),
-                            ),
-                          ),
-                  ),
-                )
-              : TextField(
-                  controller: _contentController,
-                  focusNode: _contentFocusNode,
-                  maxLines: null,
-                  expands: true,
-                  style: TextStyle(color: palette.text),
-                  inputFormatters: [SmartListFormatter()],
-                  onChanged: (text) {
-                    setState(() {});
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Type your note here...',
-                    hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.4)),
-                    border: InputBorder.none,
-                  ),
-                ),
+          child: TextField(
+            controller: _contentController,
+            focusNode: _contentFocusNode,
+            maxLines: null,
+            expands: true,
+            style: TextStyle(color: palette.text),
+            inputFormatters: [SmartListFormatter()],
+            onChanged: (text) {
+              setState(() {});
+            },
+            decoration: InputDecoration(
+              hintText: 'Type your note here...',
+              hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.4)),
+              border: InputBorder.none,
+            ),
+          ),
         ),
         
         // Event link shortcut

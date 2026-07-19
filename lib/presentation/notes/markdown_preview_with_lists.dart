@@ -23,6 +23,8 @@ class _MarkdownPreviewWithListsState extends State<MarkdownPreviewWithLists> {
     final blocks = _parseBlocks(widget.data);
 
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
       itemCount: blocks.length,
       itemBuilder: (context, index) {
