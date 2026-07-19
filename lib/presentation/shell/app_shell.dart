@@ -198,10 +198,12 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
             )
           : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      bottomNavigationBar: _PremiumNavigationBar(
-        isPill: settings.usePillNavigation,
-        pinned: pinned,
+      floatingActionButtonLocation: const _KeyboardAttachedFabLocation(),
+      bottomNavigationBar: MediaQuery.of(context).viewInsets.bottom > 0
+          ? const SizedBox.shrink()
+          : _PremiumNavigationBar(
+              isPill: settings.usePillNavigation,
+              pinned: pinned,
         selectedIndex: selectedIndex,
         palette: palette,
         onDestinationSelected: (index) {
@@ -424,66 +426,112 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _QuickAddPill extends ConsumerWidget {
+class _KeyboardAttachedFabLocation extends FloatingActionButtonLocation {
+  const _KeyboardAttachedFabLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final double fabX = (scaffoldGeometry.scaffoldSize.width - scaffoldGeometry.floatingActionButtonSize.width) / 2.0;
+    final isKeyboardOpen = scaffoldGeometry.minInsets.bottom > 0;
+    final double margin = isKeyboardOpen ? 0.0 : 16.0;
+    
+    final double fabY = scaffoldGeometry.scaffoldSize.height - scaffoldGeometry.floatingActionButtonSize.height - margin;
+    return Offset(fabX, fabY);
+  }
+}
+
+class _QuickAddPill extends ConsumerStatefulWidget {
   final NavSection currentSection;
   const _QuickAddPill({required this.currentSection});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_QuickAddPill> createState() => _QuickAddPillState();
+}
+
+class _QuickAddPillState extends ConsumerState<_QuickAddPill> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     final palette = ref.watch(themeEngineProvider);
     final selectedDay = ref.watch(selectedDayProvider);
     
     String getPillText() {
-      if (currentSection == NavSection.calendar) {
+      if (widget.currentSection == NavSection.calendar) {
         final monthStr = [
           '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
         ][selectedDay.month];
         return 'Add on $monthStr ${selectedDay.day}';
       }
-      return 'Add ${currentSection.label}';
+      return 'Add ${widget.currentSection.label}';
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 48.0),
-      child: Material(
-        color: palette.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(32),
-        elevation: 0,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(32),
-          onTap: () {
-            showUnifiedCreationSheet(context, currentSection: currentSection);
-          },
-          child: Container(
-            height: 56,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
-                color: palette.text.withValues(alpha: 0.1),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  getPillText(),
-                  style: TextStyle(
-                    color: palette.text.withValues(alpha: 0.8),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+    return PopScope(
+      canPop: !_isExpanded,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isExpanded) {
+          setState(() => _isExpanded = false);
+        }
+      },
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        child: _isExpanded
+            ? Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Material(
+                  color: Colors.transparent,
+                  elevation: 8, // Adds some shadow so it pops above content
+                  borderRadius: BorderRadius.circular(28),
+                  child: UnifiedCreationSheet(
+                    currentSection: widget.currentSection,
+                    onClose: () => setState(() => _isExpanded = false),
                   ),
                 ),
-                Icon(
-                  Icons.add,
-                  color: palette.text.withValues(alpha: 0.8),
-                  size: 24,
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 48.0),
+                child: Material(
+                  color: palette.surface.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(32),
+                  elevation: 0,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(32),
+                    onTap: () {
+                      setState(() => _isExpanded = true);
+                    },
+                    child: Container(
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(
+                          color: palette.text.withValues(alpha: 0.1),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            getPillText(),
+                            style: TextStyle(
+                              color: palette.text.withValues(alpha: 0.8),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Icon(
+                            Icons.add,
+                            color: palette.text.withValues(alpha: 0.8),
+                            size: 24,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
     );
   }
