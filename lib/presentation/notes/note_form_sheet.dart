@@ -4,6 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+
+import 'markdown_syntax_highlighter.dart';
+import 'smart_list_formatter.dart';
+import 'markdown_preview_with_lists.dart';
 
 import '../../core/theme/theme_engine_provider.dart';
 import '../../core/theme/theme_palettes.dart';
@@ -28,7 +35,7 @@ class NoteFormSheet extends ConsumerStatefulWidget {
 
 class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
   late final _titleController = TextEditingController(text: widget.existingNote?.title);
-  late final _contentController = TextEditingController(text: widget.existingNote?.content);
+  late final _contentController = MarkdownSyntaxHighlighter(text: widget.existingNote?.content);
   final FocusNode _contentFocusNode = FocusNode();
   Timer? _contentTypingTimer;
   bool _isSaving = false;
@@ -43,6 +50,30 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
     _titleController.addListener(_onTitleChanged);
     _contentController.addListener(_onContentChanged);
     _restoreDrafts();
+  }
+
+  Future<void> _attachImage() async {
+    final picker = ImagePicker();
+    final xfile = await picker.pickImage(source: ImageSource.gallery);
+    if (xfile == null) return;
+    
+    final appDir = await getApplicationDocumentsDirectory();
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${xfile.name}';
+    final savedImage = await File(xfile.path).copy('${appDir.path}/$fileName');
+    
+    final imageMarkdown = '\n![Image](file://${savedImage.path})\n';
+    
+    final currentText = _contentController.text;
+    final selection = _contentController.selection;
+    if (selection.baseOffset >= 0) {
+      final newText = currentText.replaceRange(selection.start, selection.end, imageMarkdown);
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + imageMarkdown.length),
+      );
+    } else {
+      _contentController.text += imageMarkdown;
+    }
   }
 
   bool get _isDirty {
@@ -145,6 +176,11 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                     });
                   },
                 ),
+                IconButton(
+                  icon: Icon(Icons.image_outlined, color: palette.text.withValues(alpha: 0.7)),
+                  tooltip: 'Attach Image',
+                  onPressed: _attachImage,
+                ),
                 TextButton(
                   onPressed: () {
                     setState(() {
@@ -215,9 +251,13 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                               fontSize: 14,
                             ),
                           )
-                        : MarkdownBody(
+                        : MarkdownPreviewWithLists(
                             data: _contentController.text,
-                            softLineBreak: true,
+                            onChanged: (newText) {
+                              setState(() {
+                                _contentController.text = newText;
+                              });
+                            },
                             styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
                               p: TextStyle(color: palette.text, fontSize: 14),
                             ),
@@ -230,6 +270,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
                   maxLines: null,
                   expands: true,
                   style: TextStyle(color: palette.text),
+                  inputFormatters: [SmartListFormatter()],
                   onChanged: (text) {
                     setState(() {});
                   },
