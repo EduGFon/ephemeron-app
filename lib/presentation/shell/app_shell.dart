@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
+import '../../features/quick_add/application/quick_add_provider.dart';
 import '../../features/quick_add/presentation/unified_creation_sheet.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../core/settings/app_settings_provider.dart';
@@ -440,49 +441,44 @@ class _KeyboardAttachedFabLocation extends FloatingActionButtonLocation {
   }
 }
 
-class _QuickAddPill extends ConsumerStatefulWidget {
+class _QuickAddPill extends ConsumerWidget {
   final NavSection currentSection;
   const _QuickAddPill({required this.currentSection});
 
   @override
-  ConsumerState<_QuickAddPill> createState() => _QuickAddPillState();
-}
-
-class _QuickAddPillState extends ConsumerState<_QuickAddPill> {
-  bool _isExpanded = false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final quickAddData = ref.watch(quickAddProvider);
+    final isExpanded = quickAddData.state == QuickAddState.expanded;
     final palette = ref.watch(themeEngineProvider);
     final selectedDay = ref.watch(selectedDayProvider);
     
     String getPillText() {
-      if (widget.currentSection == NavSection.calendar) {
+      if (currentSection == NavSection.calendar) {
         final monthStr = [
           '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
         ][selectedDay.month];
         return 'Add on $monthStr ${selectedDay.day}';
       }
-      return 'Add ${widget.currentSection.label}';
+      return 'Add ${currentSection.label}';
     }
 
     return PopScope(
-      canPop: !_isExpanded,
+      canPop: !isExpanded,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _isExpanded) {
-          setState(() => _isExpanded = false);
+        if (!didPop && isExpanded) {
+          ref.read(quickAddProvider.notifier).close();
         }
       },
       child: TapRegion(
         onTapOutside: (event) {
-          if (_isExpanded) {
-            setState(() => _isExpanded = false);
+          if (isExpanded) {
+            ref.read(quickAddProvider.notifier).close();
           }
         },
         child: AnimatedSize(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
-        child: _isExpanded
+          child: isExpanded
             ? Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: Material(
@@ -490,8 +486,9 @@ class _QuickAddPillState extends ConsumerState<_QuickAddPill> {
                   elevation: 8, // Adds some shadow so it pops above content
                   borderRadius: BorderRadius.circular(28),
                   child: UnifiedCreationSheet(
-                    currentSection: widget.currentSection,
-                    onClose: () => setState(() => _isExpanded = false),
+                    currentSection: currentSection,
+                    entity: quickAddData.entity,
+                    onClose: () => ref.read(quickAddProvider.notifier).close(),
                   ),
                 ),
               )
@@ -504,7 +501,7 @@ class _QuickAddPillState extends ConsumerState<_QuickAddPill> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(32),
                     onTap: () {
-                      setState(() => _isExpanded = true);
+                      ref.read(quickAddProvider.notifier).expand();
                     },
                     child: Container(
                       height: 56,

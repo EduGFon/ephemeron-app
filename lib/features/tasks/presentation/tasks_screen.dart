@@ -7,8 +7,8 @@ import '../../../core/theme/theme_palettes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/local/database.dart';
 import '../application/task_providers.dart';
+import '../../quick_add/application/quick_add_provider.dart';
 import '../domain/task_sort_option.dart';
-import 'task_form_sheet.dart';
 import 'package:ephemeron/presentation/widgets/glassmorphic_wrapper.dart';
 import '../../../presentation/widgets/confirmation_dialog.dart';
 import '../../../presentation/widgets/recurrence_delete_dialog.dart';
@@ -821,7 +821,7 @@ class _TaskTile extends ConsumerWidget {
                 ),
                 onPressed: () => repo.togglePin(task.id),
               ),
-              onTap: () => showTaskFormSheet(context, listId: task.listId, existingTask: task),
+              onTap: () => ref.read(quickAddProvider.notifier).expand(task),
             ),
           ),
         ),

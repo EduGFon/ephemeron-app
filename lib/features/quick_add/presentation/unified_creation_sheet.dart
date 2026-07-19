@@ -8,6 +8,7 @@ import '../../../presentation/shell/nav_section.dart';
 import '../../../core/settings/session_restore.dart';
 import '../../calendar/application/calendar_providers.dart';
 import '../../tasks/application/task_providers.dart';
+import '../../../data/local/database.dart';
 import 'quick_add_target.dart';
 
 Future<void> showUnifiedCreationSheet(BuildContext context, {NavSection? currentSection}) {
@@ -46,8 +47,9 @@ Future<void> showUnifiedCreationSheet(BuildContext context, {NavSection? current
 }
 
 class UnifiedCreationSheet extends ConsumerStatefulWidget {
-  const UnifiedCreationSheet({this.currentSection, this.onClose, super.key});
+  const UnifiedCreationSheet({this.currentSection, this.entity, this.onClose, super.key});
   final NavSection? currentSection;
+  final Object? entity;
   final VoidCallback? onClose;
 
   @override
@@ -78,6 +80,15 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
       NavSection.notes => QuickAddTarget.note,
       _ => QuickAddTarget.task,
     };
+    
+    if (widget.entity is Task) {
+      final task = widget.entity as Task;
+      _target = QuickAddTarget.task;
+      _titleController.text = task.title;
+      _descController.text = task.description ?? '';
+      _priority = task.priority;
+      _selectedListId = task.listId;
+    }
     
     SessionRestore.saveOpenMenu('quick_add');
     
@@ -151,10 +162,14 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
         borderRadius: BorderRadius.circular(28),
       ),
       padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.90, // Allow filling most of the screen
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
@@ -168,7 +183,7 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
                       _getTargetLabel(_target),
                       style: TextStyle(color: palette.text, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    Icon(Icons.expand_more, color: palette.text, size: 20),
+                    Icon(Icons.unfold_more, color: palette.text, size: 20),
                   ],
                 ),
                 onSelected: (val) => setState(() => _target = val),
@@ -185,9 +200,14 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
                   )
                 ).toList(),
               ),
+              const Spacer(),
+              _buildPrioritySelector(palette),
+              const SizedBox(width: 4),
+              _buildIconButton(Icons.more_vert, palette, onPressed: () {}),
             ],
           ),
           const SizedBox(height: 12),
+          if (widget.entity is Task) _buildTaskSpecificFeatures(widget.entity as Task, palette),
           TextField(
             controller: _titleController,
             focusNode: _titleFocusNode,
@@ -204,6 +224,7 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
           TextField(
             controller: _descController,
             style: TextStyle(color: palette.text, fontSize: 14),
+            maxLines: null, // Allow multiline
             decoration: InputDecoration(
               hintText: 'Description',
               hintStyle: TextStyle(color: palette.text.withValues(alpha: 0.5)),
@@ -215,16 +236,44 @@ class _UnifiedCreationSheetState extends ConsumerState<UnifiedCreationSheet> {
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildIconButton(Icons.calendar_today_outlined, palette, onPressed: () {}),
-              const SizedBox(width: 8),
-              _buildPrioritySelector(palette),
-              const SizedBox(width: 8),
               _buildTagSelector(palette),
               const SizedBox(width: 8),
               _buildListSelector(palette),
+              const SizedBox(width: 8),
+              _buildIconButton(Icons.attach_file, palette, onPressed: () {}),
               const Spacer(),
               _buildSendButton(palette),
             ],
+          ),
+        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskSpecificFeatures(Task task, AppPalette palette) {
+    // This replicates the image style with a checkbox and red overdue date
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        children: [
+          Icon(
+            task.completedAt != null ? Icons.check_box : Icons.check_box_outline_blank,
+            color: task.completedAt != null ? palette.primary : palette.text.withValues(alpha: 0.5),
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Jul 1, 21:15 - 21:45, 18d overdue', // Mock text matching image
+              style: TextStyle(
+                color: AppColors.priorityHigh, // Red color
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
