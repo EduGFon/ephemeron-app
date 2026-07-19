@@ -29,13 +29,31 @@ class DeviceCalendarRepository {
     }
   }
 
+  final Map<String, List<CalendarEvent>> _cache = {};
+  Set<String>? _cachedEnabledIds;
+
+  void clearCache() {
+    _cache.clear();
+    _cachedEnabledIds = null;
+  }
+
   Future<List<CalendarEvent>> retrieveEvents({
     required DateTime rangeStart,
     required DateTime rangeEnd,
     required Set<String> enabledCalendarIds,
+    bool forceRefresh = false,
   }) async {
     if (enabledCalendarIds.isEmpty) return const [];
     
+    final cacheKey = '${rangeStart.millisecondsSinceEpoch}_${rangeEnd.millisecondsSinceEpoch}';
+    final idsChanged = _cachedEnabledIds == null ||
+        _cachedEnabledIds!.length != enabledCalendarIds.length ||
+        !_cachedEnabledIds!.containsAll(enabledCalendarIds);
+
+    if (!forceRefresh && !idsChanged && _cache.containsKey(cacheKey)) {
+      return _cache[cacheKey]!;
+    }
+
     final hasPerm = await hasPermission();
     if (!hasPerm) return const [];
 
@@ -76,6 +94,8 @@ class DeviceCalendarRepository {
           ),
         );
       }
+      _cache[cacheKey] = mappedEvents;
+      _cachedEnabledIds = Set.from(enabledCalendarIds);
       return mappedEvents;
     } catch (_) {
       return const [];

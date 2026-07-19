@@ -174,7 +174,6 @@ class CalendarRepository {
     // Remote syncing is handled by SyncService (auto/manual triggers).
     final cached = await _loadCachedEvents(rangeStart, rangeEnd);
     cached.sort((a, b) => a.start.compareTo(b.start));
-    unawaited(_scheduleEventAlarms(cached));
     return cached;
   }
 

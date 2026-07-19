@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:device_calendar_plus/device_calendar_plus.dart' as dev_cal;
 
@@ -80,7 +81,7 @@ final monthEventsProvider =
   final overrides = ref.watch(calendarEventOverridesProvider);
   final repo = ref.watch(calendarRepositoryProvider);
   final deviceRepo = ref.watch(deviceCalendarRepositoryProvider);
-  final settings = ref.watch(appSettingsProvider);
+  final enabledCalendarIds = ref.watch(appSettingsProvider.select((s) => s.enabledDeviceCalendarIds));
   final start = DateTime(month.year, month.month, 1);
   final end = DateTime(month.year, month.month + 1, 1);
 
@@ -91,7 +92,7 @@ final monthEventsProvider =
   final deviceEvents = await deviceRepo.retrieveEvents(
     rangeStart: start,
     rangeEnd: end,
-    enabledCalendarIds: settings.enabledDeviceCalendarIds,
+    enabledCalendarIds: enabledCalendarIds,
   );
 
   // Fetch local tasks
@@ -304,17 +305,22 @@ final calendarViewProvider = NotifierProvider<CalendarViewNotifier, CalendarView
 
 class CalendarScrollOffsetNotifier extends Notifier<double?> {
   static const _prefKey = 'calendar.scrollOffset';
+  Timer? _debounceTimer;
 
   @override
   double? build() {
+    ref.onDispose(() {
+      _debounceTimer?.cancel();
+    });
     final prefs = ref.watch(sharedPreferencesProvider);
     return prefs.getDouble(_prefKey);
   }
 
   void setOffset(double offset) {
-    if (state == offset) return;
-    Future.microtask(() {
-      state = offset;
+    if (state != null && (state! - offset).abs() < 5.0) return;
+    state = offset;
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       ref.read(sharedPreferencesProvider).setDouble(_prefKey, offset);
     });
   }

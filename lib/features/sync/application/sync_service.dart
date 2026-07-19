@@ -63,6 +63,7 @@ class SyncService extends Notifier<SyncState> {
       final end = DateTime(now.year, now.month + 3, 1);
       
       DevLogger.log('Syncing calendar events from $start to $end...');
+      ref.read(deviceCalendarRepositoryProvider).clearCache();
       final calendarRepo = ref.read(calendarRepositoryProvider);
       await calendarRepo.refreshEventsFromRemote(rangeStart: start, rangeEnd: end);
       DevLogger.log('Calendar events sync completed.');

@@ -276,16 +276,23 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       borderRadius: BorderRadius.circular(24),
                       child: GlassmorphicWrapper(
                         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: monthEventsAsync.when(
-                          data: (events) => CalendarMonthGridView(
-                            focusedMonth: focusedMonth,
-                            selectedDay: selectedDay,
-                            events: events,
-                            startDayOfWeek: settings.calendarStartDay,
-                          ),
-                          loading: () => const Center(child: AppLoadingIndicator()),
-                          error: (err, _) => Center(child: Text('Error loading events: $err')),
-                        ),
+                        child: monthEventsAsync.hasValue
+                            ? CalendarMonthGridView(
+                                focusedMonth: focusedMonth,
+                                selectedDay: selectedDay,
+                                events: monthEventsAsync.value!,
+                                startDayOfWeek: settings.calendarStartDay,
+                              )
+                            : monthEventsAsync.when(
+                                data: (events) => CalendarMonthGridView(
+                                  focusedMonth: focusedMonth,
+                                  selectedDay: selectedDay,
+                                  events: events,
+                                  startDayOfWeek: settings.calendarStartDay,
+                                ),
+                                loading: () => const Center(child: AppLoadingIndicator()),
+                                error: (err, _) => Center(child: Text('Error loading events: $err')),
+                              ),
                       ),
                     ),
                   ),
