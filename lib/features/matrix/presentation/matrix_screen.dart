@@ -220,25 +220,28 @@ class _QuadrantWidgetState extends ConsumerState<_QuadrantWidget> {
                               SliverToBoxAdapter(
                                 child: Theme(
                                   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                                  child: ExpansionTile(
-                                    title: Text(
-                                      'Completed (${completedTasks.length})',
-                                      style: TextStyle(
-                                        color: widget.palette.text.withValues(alpha: 0.5),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    trailing: const SizedBox.shrink(),
-                                    tilePadding: EdgeInsets.zero,
-                                    childrenPadding: EdgeInsets.zero,
-                                    children: [
-                                      for (final task in completedTasks)
-                                        Padding(
-                                          padding: const EdgeInsets.only(bottom: 8.0),
-                                          child: _buildTaskRow(context, ref, task),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: ExpansionTile(
+                                      title: Text(
+                                        'Completed (${completedTasks.length})',
+                                        style: TextStyle(
+                                          color: widget.palette.text.withValues(alpha: 0.5),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                    ],
+                                      ),
+                                      trailing: const SizedBox.shrink(),
+                                      tilePadding: EdgeInsets.zero,
+                                      childrenPadding: EdgeInsets.zero,
+                                      children: [
+                                        for (final task in completedTasks)
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 8.0),
+                                            child: _buildTaskRow(context, ref, task),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),

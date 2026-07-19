@@ -590,23 +590,26 @@ class _TaskListView extends ConsumerWidget {
                             collapsedIconColor: palette.text.withValues(alpha: 0.5),
                           ),
                         ),
-                        child: ExpansionTile(
-                          title: Text(
-                            'Completed (${completedTasks.length})',
-                            style: TextStyle(
-                              color: palette.text.withValues(alpha: 0.6),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          childrenPadding: EdgeInsets.zero,
-                          children: [
-                            for (final task in completedTasks)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8.0),
-                                child: _TaskTile(task: task, palette: palette),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: ExpansionTile(
+                            title: Text(
+                              'Completed (${completedTasks.length})',
+                              style: TextStyle(
+                                color: palette.text.withValues(alpha: 0.6),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
-                          ],
+                            ),
+                            childrenPadding: EdgeInsets.zero,
+                            children: [
+                              for (final task in completedTasks)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: _TaskTile(task: task, palette: palette),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -725,7 +728,9 @@ class _TaskTile extends ConsumerWidget {
           borderRadius: BorderRadius.circular(16),
           child: GlassmorphicWrapper(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: ListTile(
+            child: Material(
+              color: Colors.transparent,
+              child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               leading: GestureDetector(
                 onTap: () {
@@ -826,7 +831,8 @@ class _TaskTile extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   String _formatDue(DateTime due, bool hasTime) {

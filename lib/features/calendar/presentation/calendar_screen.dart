@@ -598,7 +598,9 @@ class _EventTile extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         child: GlassmorphicWrapper(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: ListTile(
+          child: Material(
+            color: Colors.transparent,
+            child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: Container(
               width: 12,
@@ -663,7 +665,8 @@ class _EventTile extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   String _formatTime(DateTime dt) {
